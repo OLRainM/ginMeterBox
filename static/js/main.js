@@ -47,9 +47,20 @@ class BillingApp {
     async loadRecords(sortOrder = null) {
         const records = await fetchRecords(sortOrder);
         state.allRecords = records;
-        displayRecords(records);
-        updateStatistics(records);
         populateRoomFilter();
+        
+        // 检查是否有活动的筛选条件
+        const monthFilter = document.getElementById('monthFilter').value;
+        const roomFilter = document.getElementById('roomFilter').value;
+        
+        if (monthFilter || roomFilter) {
+            // 如果有筛选条件，重新应用筛选
+            applyFilters();
+        } else {
+            // 没有筛选条件，显示所有记录
+            displayRecords(records);
+            updateStatistics(records);
+        }
     }
 
     /**
