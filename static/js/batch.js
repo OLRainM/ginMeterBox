@@ -3,7 +3,7 @@
  */
 
 import { showNotification, getSelectedIds } from './utils.js';
-import { batchDeleteRecords, exportToExcel, batchSetExtraFees } from './api.js';
+import { batchDeleteRecords, exportToExcel, batchSetExtraFees, batchSetAdjustment } from './api.js';
 import { clearSelectionUI } from './ui.js';
 import { addBatchExtraFeeInput, clearBatchExtraFeeInputs, getBatchExtraFees } from './extraFee.js';
 
@@ -122,6 +122,68 @@ export async function executeBatchExtraFee(onSuccess) {
     
     if (result) {
         closeBatchExtraFeeModal();
+        clearSelectionUI();
+        if (onSuccess) onSuccess();
+    }
+}
+
+/**
+ * 显示批量设置补差模态框
+ */
+export function showBatchAdjustmentModal() {
+    const ids = getSelectedIds();
+    
+    if (ids.length === 0) {
+        showNotification('请先选择要设置补差的记录', 'error');
+        return;
+    }
+    
+    // 显示选中的记录数
+    document.getElementById('adjustmentSelectedCount').textContent = ids.length;
+    
+    // 清空输入框
+    document.getElementById('batchWaterAdjustment').value = '';
+    document.getElementById('batchElectricAdjustment').value = '';
+    
+    // 显示模态框
+    document.getElementById('batchAdjustmentModal').style.display = 'block';
+}
+
+/**
+ * 关闭批量设置补差模态框
+ */
+export function closeBatchAdjustmentModal() {
+    document.getElementById('batchAdjustmentModal').style.display = 'none';
+}
+
+/**
+ * 执行批量设置补差
+ * @param {Function} onSuccess - 成功回调
+ */
+export async function executeBatchAdjustment(onSuccess) {
+    const ids = getSelectedIds();
+    
+    if (ids.length === 0) {
+        showNotification('请先选择要设置补差的记录', 'error');
+        return;
+    }
+    
+    const waterAdjustmentInput = document.getElementById('batchWaterAdjustment').value;
+    const electricAdjustmentInput = document.getElementById('batchElectricAdjustment').value;
+    
+    // 至少要设置一个值
+    if (waterAdjustmentInput === '' && electricAdjustmentInput === '') {
+        showNotification('请至少设置一个补差值', 'error');
+        return;
+    }
+    
+    const waterAdjustment = waterAdjustmentInput !== '' ? parseFloat(waterAdjustmentInput) : null;
+    const electricAdjustment = electricAdjustmentInput !== '' ? parseFloat(electricAdjustmentInput) : null;
+    
+    const result = await batchSetAdjustment(ids, waterAdjustment, electricAdjustment);
+    
+    if (result) {
+        closeBatchAdjustmentModal();
         clearSelectionUI();
         if (onSuccess) onSuccess();
     }

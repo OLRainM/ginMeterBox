@@ -13,7 +13,7 @@ import { showCalculator, closeCalculator, setupCalculator } from './calculator.j
 import { generateReport, generateSelectedReport, generateSingleCard } from './report.js';
 import { showContinueForm, closeContinueModal, toggleContinueMode, selectAllRooms, deselectAllRooms, previewContinue, executeContinue } from './continue.js';
 import { addExtraFeeInput, removeExtraFeeInput, addBatchExtraFeeInput, removeBatchExtraFeeInput } from './extraFee.js';
-import { handleBatchDelete, handleExportToExcel, showBatchExtraFeeModal, closeBatchExtraFeeModal, executeBatchExtraFee } from './batch.js';
+import { handleBatchDelete, handleExportToExcel, showBatchExtraFeeModal, closeBatchExtraFeeModal, executeBatchExtraFee, showBatchAdjustmentModal, closeBatchAdjustmentModal, executeBatchAdjustment } from './batch.js';
 import { showSmartMatchModal, closeSmartMatchModal, previewMatch, executeSmartMatch } from './smartMatch.js';
 
 /**
@@ -139,6 +139,9 @@ class BillingApp {
             showBatchExtraFeeModal,
             closeBatchExtraFeeModal,
             executeBatchExtraFee: () => executeBatchExtraFee(() => this.loadRecords(state.currentSortOrder)),
+            showBatchAdjustmentModal,
+            closeBatchAdjustmentModal,
+            executeBatchAdjustment: () => executeBatchAdjustment(() => this.loadRecords(state.currentSortOrder)),
             
             // 智能匹配
             showSmartMatchModal,

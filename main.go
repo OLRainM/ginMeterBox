@@ -68,6 +68,9 @@ func main() {
 			// 新功能：批量设置额外费用
 			billing.POST("/batch-extra-fee", billingHandler.BatchSetExtraFee)  // 批量设置额外费用
 			
+			// 新功能：批量设置补差
+			billing.POST("/batch-adjustment", billingHandler.BatchSetAdjustment) // 批量设置水电补差
+			
 			// 新功能：批量删除
 			billing.POST("/batch-delete", billingHandler.BatchDelete)          // 批量删除记录
 			

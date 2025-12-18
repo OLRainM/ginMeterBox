@@ -954,3 +954,35 @@ input[type="checkbox"] {
 .match-usage.negative {
     background: #dc3545;
 }
+
+/* 批量设置补差样式 */
+.batch-adjustment-content {
+    padding: 20px;
+}
+
+.adjustment-inputs {
+    display: grid;
+    gap: 20px;
+}
+
+.adjustment-inputs .form-group {
+    margin-bottom: 0;
+}
+
+.adjustment-inputs label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #667eea;
+}
+
+.adjustment-inputs small {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.85em;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+}

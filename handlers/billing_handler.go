@@ -728,6 +728,94 @@ func (h *BillingHandler) BatchDelete(c *gin.Context) {
 	})
 }
 
+// BatchSetAdjustment 批量设置水电补差
+func (h *BillingHandler) BatchSetAdjustment(c *gin.Context) {
+	var request struct {
+		IDs                []int   `json:"ids"`
+		WaterAdjustment    *float64 `json:"waterAdjustment"`    // 使用指针，允许为null
+		ElectricAdjustment *float64 `json:"electricAdjustment"` // 使用指针，允许为null
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "无效的请求格式: " + err.Error(),
+		})
+		return
+	}
+
+	if len(request.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "请选择要设置补差的记录",
+		})
+		return
+	}
+
+	// 至少要设置一个补差值
+	if request.WaterAdjustment == nil && request.ElectricAdjustment == nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "请至少设置一个补差值",
+		})
+		return
+	}
+
+	count := 0
+	var updateErrors []string
+
+	for _, id := range request.IDs {
+		record, err := h.storage.GetByID(id)
+		if err != nil {
+			updateErrors = append(updateErrors, fmt.Sprintf("记录ID %d 不存在", id))
+			continue
+		}
+
+		// 更新补差值
+		if request.WaterAdjustment != nil {
+			record.WaterAdjustment = *request.WaterAdjustment
+		}
+		if request.ElectricAdjustment != nil {
+			record.ElectricAdjustment = *request.ElectricAdjustment
+		}
+
+		// 重新计算费用
+		record.CalculateCosts()
+
+		// 更新记录
+		if err := h.storage.Update(id, record); err == nil {
+			count++
+		} else {
+			updateErrors = append(updateErrors, fmt.Sprintf("房号%s更新失败: %v", record.RoomNumber, err))
+		}
+	}
+
+	if count == 0 {
+		errorMsg := "批量设置失败，没有记录被更新"
+		if len(updateErrors) > 0 {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, strings.Join(updateErrors, "; "))
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   errorMsg,
+		})
+		return
+	}
+
+	response := gin.H{
+		"success": true,
+		"message": fmt.Sprintf("成功为 %d 条记录设置补差", count),
+		"count":   count,
+	}
+
+	if len(updateErrors) > 0 {
+		response["warnings"] = updateErrors
+		response["message"] = fmt.Sprintf("成功为 %d 条记录设置补差，%d 条失败", count, len(updateErrors))
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
 // BatchSetExtraFee 批量设置额外费用
 func (h *BillingHandler) BatchSetExtraFee(c *gin.Context) {
 	var request struct {

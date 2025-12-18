@@ -78,6 +78,9 @@
                     <button class="btn btn-success" onclick="window.billingApp.showBatchExtraFeeModal()">
                         <span>💵</span> 批量设置额外费用
                     </button>
+                    <button class="btn btn-warning" onclick="window.billingApp.showBatchAdjustmentModal()">
+                        <span>⚖️</span> 批量设置补差
+                    </button>
                     <button class="btn btn-primary" onclick="window.billingApp.showSmartMatchModal()">
                         <span>🎯</span> 智能水表匹配
                     </button>
@@ -417,6 +420,64 @@
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="window.billingApp.closeBatchExtraFeeModal()">取消</button>
                     <button type="button" class="btn btn-primary" onclick="window.billingApp.executeBatchExtraFee()">应用</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量设置补差模态框 -->
+    <div id="batchAdjustmentModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚖️ 批量设置水电补差</h2>
+                <span class="close" onclick="window.billingApp.closeBatchAdjustmentModal()">&times;</span>
+            </div>
+            <div class="batch-adjustment-content">
+                <div class="info-box">
+                    <p>
+                        <strong>已选中 <span id="adjustmentSelectedCount">0</span> 条记录</strong>
+                    </p>
+                    <p style="color: #666; margin-top: 5px; font-size: 0.9em;">
+                        为所选记录批量设置水表和电表的补差值
+                    </p>
+                </div>
+
+                <div class="form-section">
+                    <h3>补差设置</h3>
+                    <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">
+                        💡 提示：可以只设置其中一个，留空的不会被修改
+                    </p>
+                    
+                    <div class="adjustment-inputs">
+                        <div class="form-group">
+                            <label>💧 水表补差</label>
+                            <input 
+                                type="number" 
+                                id="batchWaterAdjustment" 
+                                step="0.01" 
+                                placeholder="留空则不修改"
+                                style="width: 100%;"
+                            >
+                            <small style="color: #666;">用水量 = 本月读数 - 上月读数 + 补差</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label>⚡ 电表补差</label>
+                            <input 
+                                type="number" 
+                                id="batchElectricAdjustment" 
+                                step="0.01" 
+                                placeholder="留空则不修改"
+                                style="width: 100%;"
+                            >
+                            <small style="color: #666;">用电量 = 本月读数 - 上月读数 + 补差</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.billingApp.closeBatchAdjustmentModal()">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="window.billingApp.executeBatchAdjustment()">应用</button>
                 </div>
             </div>
         </div>

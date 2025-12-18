@@ -325,6 +325,49 @@ export async function batchContinueRecords(roomNumbers, newMonth) {
 }
 
 /**
+ * 批量设置水电补差
+ * @param {number[]} ids - 记录ID数组
+ * @param {number|null} waterAdjustment - 水表补差值
+ * @param {number|null} electricAdjustment - 电表补差值
+ * @returns {Promise<Object|null>} 操作结果
+ */
+export async function batchSetAdjustment(ids, waterAdjustment, electricAdjustment) {
+    try {
+        const body = { ids };
+        
+        // 只添加非null的值
+        if (waterAdjustment !== null && waterAdjustment !== undefined) {
+            body.waterAdjustment = waterAdjustment;
+        }
+        if (electricAdjustment !== null && electricAdjustment !== undefined) {
+            body.electricAdjustment = electricAdjustment;
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/billing/batch-adjustment`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification(`✅ ${result.message}`, 'success');
+            return result;
+        } else {
+            showNotification('批量设置补差失败: ' + result.error, 'error');
+            return null;
+        }
+    } catch (error) {
+        console.error('批量设置补差失败:', error);
+        showNotification('批量设置补差失败', 'error');
+        return null;
+    }
+}
+
+/**
  * 智能水表匹配
  * @param {number[]} ids - 记录ID数组
  * @param {number[]} waterReadings - 水表读数数组
