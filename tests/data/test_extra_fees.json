@@ -1,0 +1,27 @@
+{
+  "roomNumber": "203",
+  "currentWater": 3100,
+  "previousWater": 3050,
+  "waterAdjustment": 2,
+  "waterPrice": 4.3,
+  "currentElectric": 8200,
+  "previousElectric": 7900,
+  "electricAdjustment": 5,
+  "electricPrice": 0.72,
+  "managementFee": 22,
+  "billingMonth": "2025-11",
+  "extraFees": [
+    {
+      "name": "水管维修费",
+      "amount": 120.50
+    },
+    {
+      "name": "公共清洁费",
+      "amount": 30.00
+    },
+    {
+      "name": "电梯维护费",
+      "amount": 45.00
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go build
+/bin/
+/tmp/
+
+# Dependency directories
+/vendor/
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files
+*.db
+data/*.json
+!data/.gitkeep
+
+# Generated reports
+reports/*.png
+!reports/.gitkeep
+
+# Logs
+logs/*.log
+!logs/.gitkeep
+
+# Environment variables
+.env
+.env.local
+
+# Exported files
+exports/*.xlsx
+exports/*.json
+!exports/.gitkeep
+
+# Test coverage
+*.out
+coverage.html
+
+# Build artifacts
+dist/
+build/

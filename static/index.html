@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水电费计算系统</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💧⚡ 水电费计算管理系统</h1>
+            <p class="subtitle">Water & Electric Billing Management System</p>
+        </header>
+
+        <div class="main-content">
+            <!-- 操作面板 -->
+            <div class="control-panel">
+                <div class="price-config">
+                    <h3>价格配置</h3>
+                    <div class="price-inputs">
+                        <div class="price-item">
+                            <label>水价 (元/吨):</label>
+                            <input type="number" id="waterPrice" value="4.3" step="0.1" min="0">
+                        </div>
+                        <div class="price-item">
+                            <label>电价 (元/度):</label>
+                            <input type="number" id="electricPrice" value="0.72" step="0.01" min="0">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="window.billingApp.showAddForm()">
+                        <span>➕</span> 新增记录
+                    </button>
+                    <button class="btn btn-success" onclick="window.billingApp.showContinueForm()">
+                        <span>🔄</span> 自动延续
+                    </button>
+                    <button class="btn btn-secondary" onclick="window.billingApp.loadRecords()">
+                        <span>🔃</span> 刷新数据
+                    </button>
+                    <button class="btn btn-info" onclick="window.billingApp.showCalculator()">
+                        <span>🧮</span> 快速计算
+                    </button>
+                </div>
+
+                <div class="filter-section">
+                    <label>按月份筛选:</label>
+                    <input type="month" id="monthFilter" onchange="window.billingApp.applyFilters()">
+                    <label style="margin-left: 15px;">按房号筛选:</label>
+                    <select id="roomFilter" onchange="window.billingApp.applyFilters()">
+                        <option value="">全部房号</option>
+                    </select>
+                    <button class="btn btn-small" onclick="window.billingApp.clearFilter()">清除筛选</button>
+                </div>
+
+                <div class="sort-section">
+                    <label>排序:</label>
+                    <button class="btn btn-small" onclick="window.billingApp.sortByRoom('asc')">
+                        🔼 房号升序
+                    </button>
+                    <button class="btn btn-small" onclick="window.billingApp.sortByRoom('desc')">
+                        🔽 房号降序
+                    </button>
+                </div>
+
+                <div class="report-section">
+                    <button class="btn btn-report" onclick="window.billingApp.generateReport()">
+                        <span>📊</span> 生成报表
+                    </button>
+                    <button class="btn btn-report" onclick="window.billingApp.generateSelectedReport()">
+                        <span>🎯</span> 生成选中
+                    </button>
+                </div>
+
+                <div class="batch-section">
+                    <button class="btn btn-success" onclick="window.billingApp.showBatchExtraFeeModal()">
+                        <span>💵</span> 批量设置额外费用
+                    </button>
+                    <button class="btn btn-info" onclick="window.billingApp.exportToExcel()">
+                        <span>📊</span> 导出Excel
+                    </button>
+                    <button class="btn btn-danger" onclick="window.billingApp.batchDeleteRecords()">
+                        <span>🗑️</span> 批量删除
+                    </button>
+                </div>
+            </div>
+
+            <!-- 统计面板 -->
+            <div class="statistics">
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-content">
+                        <div class="stat-label">总记录数</div>
+                        <div class="stat-value" id="totalRecords">0</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-content">
+                        <div class="stat-label">总费用</div>
+                        <div class="stat-value" id="totalCost">¥0.00</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💧</div>
+                    <div class="stat-content">
+                        <div class="stat-label">总水费</div>
+                        <div class="stat-value" id="totalWater">¥0.00</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⚡</div>
+                    <div class="stat-content">
+                        <div class="stat-label">总电费</div>
+                        <div class="stat-value" id="totalElectric">¥0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 选中记录统计面板 -->
+            <div class="selected-statistics" id="selectedStatistics" style="display: none;">
+                <div class="selected-stats-header">
+                    <h3>📋 已选中记录统计</h3>
+                    <button class="btn btn-small" onclick="window.billingApp.clearSelection()" style="padding: 5px 15px;">清除选择</button>
+                </div>
+                <div class="selected-stats-content">
+                    <div class="selected-stat-item">
+                        <span class="label">选中数量：</span>
+                        <span class="value" id="selectedCount">0</span>
+                    </div>
+                    <div class="selected-stat-item">
+                        <span class="label">总水费：</span>
+                        <span class="value" id="selectedWaterCost">¥0.00</span>
+                    </div>
+                    <div class="selected-stat-item">
+                        <span class="label">总电费：</span>
+                        <span class="value" id="selectedElectricCost">¥0.00</span>
+                    </div>
+                    <div class="selected-stat-item">
+                        <span class="label">总管理费：</span>
+                        <span class="value" id="selectedManagementFee">¥0.00</span>
+                    </div>
+                    <div class="selected-stat-item">
+                        <span class="label">额外费用：</span>
+                        <span class="value" id="selectedExtraFee">¥0.00</span>
+                    </div>
+                    <div class="selected-stat-item total">
+                        <span class="label">合计总费用：</span>
+                        <span class="value" id="selectedTotalCost">¥0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 数据表格 -->
+            <div class="table-container">
+                <table id="billingTable">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAll" onchange="window.billingApp.toggleSelectAll()"></th>
+                            <th>住户</th>
+                            <th>缴费月份</th>
+                            <th>用水量(吨)</th>
+                            <th>水费(元)</th>
+                            <th>用电量(度)</th>
+                            <th>电费(元)</th>
+                            <th>管理费(元)</th>
+                            <th>额外费用</th>
+                            <th>总费用(元)</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr>
+                            <td colspan="11" class="no-data">暂无数据，请添加记录</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑表单模态框 -->
+    <div id="formModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="formTitle">新增记录</h2>
+                <span class="close" onclick="window.billingApp.closeModal ? window.billingApp.closeModal() : closeModal()">&times;</span>
+            </div>
+            <form id="billingForm">
+                <input type="hidden" id="recordId">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>住户编号 *</label>
+                        <input type="text" id="roomNumber" required>
+                    </div>
+                    <div class="form-group">
+                        <label>缴费月份 *</label>
+                        <input type="month" id="billingMonth" required>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>💧 用水信息</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>本月水表读数 *</label>
+                            <input type="number" id="currentWater" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>上月水表读数 *</label>
+                            <input type="number" id="previousWater" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>水表补差</label>
+                            <input type="number" id="waterAdjustment" step="0.01" value="0">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h3>⚡ 用电信息</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>本月电表读数 *</label>
+                            <input type="number" id="currentElectric" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>上月电表读数 *</label>
+                            <input type="number" id="previousElectric" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>电表补差</label>
+                            <input type="number" id="electricAdjustment" step="0.01" value="0">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>管理费 (元)</label>
+                    <input type="number" id="managementFee" step="0.01" value="0">
+                </div>
+
+                <div class="form-section">
+                    <h3>💵 额外费用</h3>
+                    <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">
+                        可添加水管维修、公共清洁等额外费用项
+                    </p>
+                    <div id="extraFeesContainer"></div>
+                    <button type="button" class="btn btn-success" onclick="window.billingApp.addExtraFeeInput()">
+                        ➕ 添加额外费用
+                    </button>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.billingApp.closeModal ? window.billingApp.closeModal() : closeModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 快速计算器模态框 -->
+    <div id="calculatorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🧮 快速计算器</h2>
+                <span class="close" onclick="window.billingApp.closeCalculator()">&times;</span>
+            </div>
+            <div class="calculator-content">
+                <div class="calc-section">
+                    <h3>💧 水费计算</h3>
+                    <div class="calc-row">
+                        <input type="number" id="calcWaterUsage" placeholder="用水量(吨)" step="0.01">
+                        <span>×</span>
+                        <input type="number" id="calcWaterPrice" placeholder="单价" step="0.1" value="4.3">
+                        <span>=</span>
+                        <span class="calc-result" id="calcWaterResult">0.00</span>
+                    </div>
+                </div>
+                <div class="calc-section">
+                    <h3>⚡ 电费计算</h3>
+                    <div class="calc-row">
+                        <input type="number" id="calcElectricUsage" placeholder="用电量(度)" step="0.01">
+                        <span>×</span>
+                        <input type="number" id="calcElectricPrice" placeholder="单价" step="0.01" value="0.72">
+                        <span>=</span>
+                        <span class="calc-result" id="calcElectricResult">0.00</span>
+                    </div>
+                </div>
+                <div class="calc-section">
+                    <h3>💰 总费用</h3>
+                    <div class="calc-total">
+                        <div>水费: <span id="calcTotalWater">0.00</span></div>
+                        <div>电费: <span id="calcTotalElectric">0.00</span></div>
+                        <div>管理费: <input type="number" id="calcManagementFee" value="0" step="0.01"></div>
+                        <div class="total-line">总计: <strong id="calcTotalCost">0.00</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自动延续模态框 -->
+    <div id="continueModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔄 自动延续 - 从上月创建新记录</h2>
+                <span class="close" onclick="window.billingApp.closeContinueModal()">&times;</span>
+            </div>
+            <div class="continue-content">
+                <p class="continue-desc">
+                    📌 该功能将自动从上月记录创建新月份的账单<br>
+                    💡 本月的水电表初始读数将自动设为上月的当前读数
+                </p>
+                
+                <div class="form-section">
+                    <h3>选择模式</h3>
+                    <div class="mode-selection">
+                        <label class="radio-label">
+                            <input type="radio" name="continueMode" value="single" checked onchange="window.billingApp.toggleContinueMode()">
+                            <span>单户模式</span> - 为单个住户创建新记录
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="continueMode" value="batch" onchange="window.billingApp.toggleContinueMode()">
+                            <span>批量模式</span> - 为多个住户批量创建
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 单户模式 -->
+                <div id="singleContinueSection">
+                    <div class="form-group">
+                        <label>住户编号 *</label>
+                        <input type="text" id="continueRoomNumber" placeholder="输入住户编号" required>
+                    </div>
+                </div>
+
+                <!-- 批量模式 -->
+                <div id="batchContinueSection" style="display: none;">
+                    <div class="form-group">
+                        <label>选择住户 *</label>
+                        <div class="info-box" style="max-height: 200px; overflow-y: auto;">
+                            <div id="roomSelectionList"></div>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button type="button" class="btn btn-small" onclick="window.billingApp.selectAllRooms()">全选</button>
+                            <button type="button" class="btn btn-small" onclick="window.billingApp.deselectAllRooms()">取消全选</button>
+                            <span id="selectedRoomsCount" style="margin-left: 10px; color: #667eea; font-weight: bold;">已选择: 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>新月份 *</label>
+                    <input type="month" id="continueNewMonth" required>
+                </div>
+
+                <div id="previousInfo" class="info-box" style="display: none;">
+                    <h4>上月数据预览</h4>
+                    <div id="previousData"></div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.billingApp.closeContinueModal()">取消</button>
+                    <button type="button" class="btn btn-info" onclick="window.billingApp.previewContinue()">预览</button>
+                    <button type="button" class="btn btn-success" onclick="window.billingApp.executeContinue()">创建</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 批量设置额外费用模态框 -->
+    <div id="batchExtraFeeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💵 批量设置额外费用</h2>
+                <span class="close" onclick="window.billingApp.closeBatchExtraFeeModal()">&times;</span>
+            </div>
+            <div class="batch-extra-fee-content">
+                <div class="info-box">
+                    <p>
+                        <strong>已选中 <span id="batchSelectedCount">0</span> 条记录</strong>
+                    </p>
+                    <p style="color: #666; margin-top: 5px; font-size: 0.9em;">
+                        将为所选记录批量添加以下额外费用
+                    </p>
+                </div>
+
+                <div class="form-section">
+                    <h3>额外费用项</h3>
+                    <div id="batchExtraFeesContainer"></div>
+                    <button type="button" class="btn btn-success" onclick="window.billingApp.addBatchExtraFeeInput()">
+                        ➕ 添加费用项
+                    </button>
+                </div>
+
+                <div class="form-section">
+                    <h3>操作模式</h3>
+                    <div class="mode-selection">
+                        <label class="radio-label">
+                            <input type="radio" name="batchMode" value="append" checked>
+                            <span>追加模式</span> - 在现有额外费用基础上追加
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="batchMode" value="replace">
+                            <span>替换模式</span> - 替换所有现有额外费用
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.billingApp.closeBatchExtraFeeModal()">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="window.billingApp.executeBatchExtraFee()">应用</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/static/js/main.js"></script>
+</body>
+</html>
