@@ -802,3 +802,167 @@ func (h *BillingHandler) BatchSetExtraFee(c *gin.Context) {
 		"count":   count,
 	})
 }
+
+// SmartWaterMatch 智能水表匹配
+func (h *BillingHandler) SmartWaterMatch(c *gin.Context) {
+	var request struct {
+		IDs          []int     `json:"ids"`          // 选中的记录ID
+		WaterReadings []float64 `json:"waterReadings"` // 水表读数列表
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "无效的请求格式: " + err.Error(),
+		})
+		return
+	}
+
+	if len(request.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "请选择要匹配的用户",
+		})
+		return
+	}
+
+	if len(request.WaterReadings) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "请输入水表读数",
+		})
+		return
+	}
+
+	if len(request.IDs) != len(request.WaterReadings) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   fmt.Sprintf("用户数量(%d)与水表读数数量(%d)不匹配", len(request.IDs), len(request.WaterReadings)),
+		})
+		return
+	}
+
+	// 获取所有记录
+	var records []*models.BillingRecord
+	for _, id := range request.IDs {
+		record, err := h.storage.GetByID(id)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{
+				"success": false,
+				"error":   fmt.Sprintf("记录ID %d 不存在", id),
+			})
+			return
+		}
+		records = append(records, record)
+	}
+
+	// 执行智能匹配
+	matches := smartMatchWaterReadings(records, request.WaterReadings)
+
+	// 更新记录
+	successCount := 0
+	var matchResults []gin.H
+	for _, match := range matches {
+		record := match.Record
+		record.CurrentWater = match.WaterReading
+		record.CalculateCosts()
+
+		if err := h.storage.Update(record.ID, record); err == nil {
+			successCount++
+			matchResults = append(matchResults, gin.H{
+				"id":           record.ID,
+				"roomNumber":   record.RoomNumber,
+				"waterReading": match.WaterReading,
+				"waterUsage":   record.WaterUsage,
+				"previousWater": record.PreviousWater,
+			})
+		}
+	}
+
+	if successCount == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "智能匹配失败，没有记录被更新",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("成功匹配并更新 %d 条记录", successCount),
+		"count":   successCount,
+		"matches": matchResults,
+	})
+}
+
+// WaterMatch 水表匹配结果
+type WaterMatch struct {
+	Record       *models.BillingRecord
+	WaterReading float64
+	WaterUsage   float64
+}
+
+// smartMatchWaterReadings 智能匹配水表读数（最小总用水量原则）
+func smartMatchWaterReadings(records []*models.BillingRecord, readings []float64) []WaterMatch {
+	n := len(records)
+	
+	// 计算所有可能的匹配方案的总用水量
+	bestMatches := make([]WaterMatch, n)
+	minTotalUsage := float64(1e18) // 初始化为一个很大的数
+	
+	// 生成所有排列组合
+	permutations := generatePermutations(readings)
+	
+	for _, perm := range permutations {
+		totalUsage := 0.0
+		currentMatches := make([]WaterMatch, n)
+		
+		for i := 0; i < n; i++ {
+			usage := perm[i] - records[i].PreviousWater + records[i].WaterAdjustment
+			totalUsage += usage
+			currentMatches[i] = WaterMatch{
+				Record:       records[i],
+				WaterReading: perm[i],
+				WaterUsage:   usage,
+			}
+		}
+		
+		// 如果当前方案的总用水量更小，则更新最佳方案
+		if totalUsage < minTotalUsage {
+			minTotalUsage = totalUsage
+			copy(bestMatches, currentMatches)
+		}
+	}
+	
+	return bestMatches
+}
+
+// generatePermutations 生成所有排列组合
+func generatePermutations(arr []float64) [][]float64 {
+	var result [][]float64
+	var permute func([]float64, int)
+	
+	permute = func(arr []float64, n int) {
+		if n == 1 {
+			tmp := make([]float64, len(arr))
+			copy(tmp, arr)
+			result = append(result, tmp)
+			return
+		}
+		
+		for i := 0; i < n; i++ {
+			permute(arr, n-1)
+			if n%2 == 1 {
+				arr[0], arr[n-1] = arr[n-1], arr[0]
+			} else {
+				arr[i], arr[n-1] = arr[n-1], arr[i]
+			}
+		}
+	}
+	
+	tmp := make([]float64, len(arr))
+	copy(tmp, arr)
+	permute(tmp, len(tmp))
+	
+	return result
+}

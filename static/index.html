@@ -78,6 +78,9 @@
                     <button class="btn btn-success" onclick="window.billingApp.showBatchExtraFeeModal()">
                         <span>💵</span> 批量设置额外费用
                     </button>
+                    <button class="btn btn-primary" onclick="window.billingApp.showSmartMatchModal()">
+                        <span>🎯</span> 智能水表匹配
+                    </button>
                     <button class="btn btn-info" onclick="window.billingApp.exportToExcel()">
                         <span>📊</span> 导出Excel
                     </button>
@@ -414,6 +417,56 @@
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="window.billingApp.closeBatchExtraFeeModal()">取消</button>
                     <button type="button" class="btn btn-primary" onclick="window.billingApp.executeBatchExtraFee()">应用</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 智能水表匹配模态框 -->
+    <div id="smartMatchModal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>🎯 智能水表匹配</h2>
+                <span class="close" onclick="window.billingApp.closeSmartMatchModal()">&times;</span>
+            </div>
+            <div class="smart-match-content">
+                <div class="info-box">
+                    <h4>💡 功能说明</h4>
+                    <p>选择多个用户后，批量输入水表读数，系统会自动按照<strong>最小总用水量</strong>的原则进行智能匹配。</p>
+                    <p style="margin-top: 8px; color: #666;">
+                        <strong>使用方法：</strong>输入水表读数（用空格、逗号或换行分隔），点击"预览匹配"查看结果，确认后点击"确认并应用"。
+                    </p>
+                </div>
+
+                <!-- 选中的用户列表 -->
+                <div id="selectedUsersList"></div>
+
+                <!-- 水表读数输入 -->
+                <div class="form-section">
+                    <h3>输入水表读数</h3>
+                    <p style="color: #666; font-size: 0.9em; margin-bottom: 10px;">
+                        请输入与选中用户数量相同的水表读数，支持空格、逗号或换行分隔
+                    </p>
+                    <textarea 
+                        id="waterReadingsInput" 
+                        rows="5" 
+                        placeholder="例如：2893 2870 2850 2920&#10;或：2893, 2870, 2850, 2920"
+                        style="width: 100%; padding: 10px; font-size: 14px; border: 1px solid #ddd; border-radius: 4px;"
+                    ></textarea>
+                </div>
+
+                <!-- 预览按钮 -->
+                <div style="text-align: center; margin: 20px 0;">
+                    <button type="button" class="btn btn-info" onclick="window.billingApp.previewMatch()">
+                        🔍 预览匹配结果
+                    </button>
+                </div>
+
+                <!-- 匹配预览结果 -->
+                <div id="matchPreview"></div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="window.billingApp.closeSmartMatchModal()">取消</button>
                 </div>
             </div>
         </div>

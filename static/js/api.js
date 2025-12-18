@@ -323,3 +323,41 @@ export async function batchContinueRecords(roomNumbers, newMonth) {
         return null;
     }
 }
+
+/**
+ * 智能水表匹配
+ * @param {number[]} ids - 记录ID数组
+ * @param {number[]} waterReadings - 水表读数数组
+ * @returns {Promise<Object|null>} 匹配结果
+ */
+export async function smartWaterMatch(ids, waterReadings) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/billing/smart-water-match`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ids, waterReadings })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showNotification(`✅ ${result.message}`, 'success');
+            
+            // 显示匹配详情
+            if (result.matches && result.matches.length > 0) {
+                console.log('匹配结果:', result.matches);
+            }
+            
+            return result;
+        } else {
+            showNotification('智能匹配失败: ' + result.error, 'error');
+            return null;
+        }
+    } catch (error) {
+        console.error('智能匹配失败:', error);
+        showNotification('智能匹配失败', 'error');
+        return null;
+    }
+}

@@ -70,6 +70,9 @@ func main() {
 			
 			// 新功能：批量删除
 			billing.POST("/batch-delete", billingHandler.BatchDelete)          // 批量删除记录
+			
+			// 新功能：智能水表匹配
+			billing.POST("/smart-water-match", billingHandler.SmartWaterMatch) // 智能水表匹配
 		}
 
 		// 健康检查

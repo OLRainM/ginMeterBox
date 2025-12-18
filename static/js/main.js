@@ -14,6 +14,7 @@ import { generateReport, generateSelectedReport, generateSingleCard } from './re
 import { showContinueForm, closeContinueModal, toggleContinueMode, selectAllRooms, deselectAllRooms, previewContinue, executeContinue } from './continue.js';
 import { addExtraFeeInput, removeExtraFeeInput, addBatchExtraFeeInput, removeBatchExtraFeeInput } from './extraFee.js';
 import { handleBatchDelete, handleExportToExcel, showBatchExtraFeeModal, closeBatchExtraFeeModal, executeBatchExtraFee } from './batch.js';
+import { showSmartMatchModal, closeSmartMatchModal, previewMatch, executeSmartMatch } from './smartMatch.js';
 
 /**
  * 账单管理应用类
@@ -126,7 +127,13 @@ class BillingApp {
             exportToExcel: handleExportToExcel,
             showBatchExtraFeeModal,
             closeBatchExtraFeeModal,
-            executeBatchExtraFee: () => executeBatchExtraFee(() => this.loadRecords(state.currentSortOrder))
+            executeBatchExtraFee: () => executeBatchExtraFee(() => this.loadRecords(state.currentSortOrder)),
+            
+            // 智能匹配
+            showSmartMatchModal,
+            closeSmartMatchModal,
+            previewMatch,
+            executeSmartMatch: () => executeSmartMatch(() => this.loadRecords(state.currentSortOrder))
         };
     }
 }
