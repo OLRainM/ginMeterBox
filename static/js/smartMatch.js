@@ -18,6 +18,12 @@ export function showSmartMatchModal() {
         return;
     }
     
+    // 检查用户数量限制
+    if (ids.length > 10) {
+        showNotification('为保证性能，单次匹配用户数量不能超过10个，请分批处理', 'error');
+        return;
+    }
+    
     // 获取选中的记录
     const selectedRecords = state.allRecords.filter(r => ids.includes(r.id));
     
@@ -147,22 +153,37 @@ function simulateMatch(records, readings) {
 }
 
 /**
- * 生成排列组合
+ * 生成排列组合（使用回溯算法）
  */
 function generatePermutations(arr) {
-    if (arr.length <= 1) return [arr];
-    
     const result = [];
+    const n = arr.length;
     
-    for (let i = 0; i < arr.length; i++) {
-        const current = arr[i];
-        const remaining = arr.slice(0, i).concat(arr.slice(i + 1));
-        const remainingPerms = generatePermutations(remaining);
+    // 边界情况
+    if (n === 0) return result;
+    if (n === 1) return [[arr[0]]];
+    
+    // 回溯算法
+    function backtrack(current, start) {
+        if (start === n) {
+            // 找到完整排列，复制并添加
+            result.push([...current]);
+            return;
+        }
         
-        for (const perm of remainingPerms) {
-            result.push([current, ...perm]);
+        for (let i = start; i < n; i++) {
+            // 交换
+            [current[start], current[i]] = [current[i], current[start]];
+            // 递归
+            backtrack(current, start + 1);
+            // 回溯
+            [current[start], current[i]] = [current[i], current[start]];
         }
     }
+    
+    // 创建工作数组
+    const working = [...arr];
+    backtrack(working, 0);
     
     return result;
 }

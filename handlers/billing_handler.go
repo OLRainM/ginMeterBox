@@ -856,12 +856,32 @@ func (h *BillingHandler) SmartWaterMatch(c *gin.Context) {
 		records = append(records, record)
 	}
 
+	// 检查用户数量限制（防止组合爆炸）
+	if len(request.IDs) > 10 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"error":   "为保证性能，单次匹配用户数量不能超过10个，建议分批处理",
+		})
+		return
+	}
+
 	// 执行智能匹配
 	matches := smartMatchWaterReadings(records, request.WaterReadings)
+
+	// 检查匹配结果
+	if len(matches) == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"success": false,
+			"error":   "智能匹配失败，未能生成匹配方案",
+		})
+		return
+	}
 
 	// 更新记录
 	successCount := 0
 	var matchResults []gin.H
+	var updateErrors []string
+	
 	for _, match := range matches {
 		record := match.Record
 		record.CurrentWater = match.WaterReading
@@ -876,23 +896,37 @@ func (h *BillingHandler) SmartWaterMatch(c *gin.Context) {
 				"waterUsage":   record.WaterUsage,
 				"previousWater": record.PreviousWater,
 			})
+		} else {
+			updateErrors = append(updateErrors, fmt.Sprintf("房号%s更新失败: %v", record.RoomNumber, err))
 		}
 	}
 
 	if successCount == 0 {
+		errorMsg := "智能匹配失败，没有记录被更新"
+		if len(updateErrors) > 0 {
+			errorMsg = fmt.Sprintf("%s: %s", errorMsg, strings.Join(updateErrors, "; "))
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,
-			"error":   "智能匹配失败，没有记录被更新",
+			"error":   errorMsg,
 		})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"success": true,
 		"message": fmt.Sprintf("成功匹配并更新 %d 条记录", successCount),
 		"count":   successCount,
 		"matches": matchResults,
-	})
+	}
+	
+	// 如果有部分失败，添加警告信息
+	if len(updateErrors) > 0 {
+		response["warnings"] = updateErrors
+		response["message"] = fmt.Sprintf("成功匹配并更新 %d 条记录，%d 条失败", successCount, len(updateErrors))
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 // WaterMatch 水表匹配结果
@@ -906,6 +940,20 @@ type WaterMatch struct {
 func smartMatchWaterReadings(records []*models.BillingRecord, readings []float64) []WaterMatch {
 	n := len(records)
 	
+	// 边界情况处理
+	if n == 0 {
+		return []WaterMatch{}
+	}
+	
+	// 如果只有一个用户，直接返回
+	if n == 1 {
+		return []WaterMatch{{
+			Record:       records[0],
+			WaterReading: readings[0],
+			WaterUsage:   readings[0] - records[0].PreviousWater + records[0].WaterAdjustment,
+		}}
+	}
+	
 	// 计算所有可能的匹配方案的总用水量
 	bestMatches := make([]WaterMatch, n)
 	minTotalUsage := float64(1e18) // 初始化为一个很大的数
@@ -913,10 +961,12 @@ func smartMatchWaterReadings(records []*models.BillingRecord, readings []float64
 	// 生成所有排列组合
 	permutations := generatePermutations(readings)
 	
+	// 遍历所有排列，找到最优方案
 	for _, perm := range permutations {
 		totalUsage := 0.0
 		currentMatches := make([]WaterMatch, n)
 		
+		// 计算当前排列的总用水量
 		for i := 0; i < n; i++ {
 			usage := perm[i] - records[i].PreviousWater + records[i].WaterAdjustment
 			totalUsage += usage
@@ -930,6 +980,7 @@ func smartMatchWaterReadings(records []*models.BillingRecord, readings []float64
 		// 如果当前方案的总用水量更小，则更新最佳方案
 		if totalUsage < minTotalUsage {
 			minTotalUsage = totalUsage
+			bestMatches = make([]WaterMatch, n)
 			copy(bestMatches, currentMatches)
 		}
 	}
@@ -937,32 +988,44 @@ func smartMatchWaterReadings(records []*models.BillingRecord, readings []float64
 	return bestMatches
 }
 
-// generatePermutations 生成所有排列组合
+// generatePermutations 生成所有排列组合（使用回溯算法，避免数组修改问题）
 func generatePermutations(arr []float64) [][]float64 {
 	var result [][]float64
-	var permute func([]float64, int)
+	n := len(arr)
 	
-	permute = func(arr []float64, n int) {
-		if n == 1 {
-			tmp := make([]float64, len(arr))
-			copy(tmp, arr)
-			result = append(result, tmp)
+	// 边界情况处理
+	if n == 0 {
+		return result
+	}
+	if n == 1 {
+		return [][]float64{{arr[0]}}
+	}
+	
+	// 使用回溯算法生成排列
+	var backtrack func([]float64, int)
+	backtrack = func(current []float64, start int) {
+		if start == n {
+			// 找到一个完整的排列，复制并添加到结果中
+			perm := make([]float64, n)
+			copy(perm, current)
+			result = append(result, perm)
 			return
 		}
 		
-		for i := 0; i < n; i++ {
-			permute(arr, n-1)
-			if n%2 == 1 {
-				arr[0], arr[n-1] = arr[n-1], arr[0]
-			} else {
-				arr[i], arr[n-1] = arr[n-1], arr[i]
-			}
+		for i := start; i < n; i++ {
+			// 交换
+			current[start], current[i] = current[i], current[start]
+			// 递归
+			backtrack(current, start+1)
+			// 回溯（恢复）
+			current[start], current[i] = current[i], current[start]
 		}
 	}
 	
-	tmp := make([]float64, len(arr))
-	copy(tmp, arr)
-	permute(tmp, len(tmp))
+	// 创建工作数组的副本
+	working := make([]float64, n)
+	copy(working, arr)
+	backtrack(working, 0)
 	
 	return result
 }
