@@ -927,3 +927,30 @@ input[type="checkbox"] {
     margin-bottom: 12px;
     font-size: 1.1em;
 }
+
+/* 匹配错误样式 */
+.match-error {
+    background: #fff3f3;
+    border: 2px solid #dc3545;
+}
+
+.match-error h4 {
+    color: #dc3545;
+}
+
+.error-message {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 15px;
+    color: #333;
+}
+
+.error-message p {
+    margin: 0;
+    line-height: 1.6;
+}
+
+.match-usage.negative {
+    background: #dc3545;
+}

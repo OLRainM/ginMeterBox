@@ -119,12 +119,13 @@ export function previewMatch() {
 }
 
 /**
- * 本地模拟匹配（用于预览）
+ * 本地模拟匹配（用于预览，所有用水量必须非负）
  */
 function simulateMatch(records, readings) {
     const n = records.length;
     let bestMatches = [];
     let minTotalUsage = Infinity;
+    let hasValidMatch = false;
     
     // 生成所有排列
     const permutations = generatePermutations(readings);
@@ -132,9 +133,18 @@ function simulateMatch(records, readings) {
     for (const perm of permutations) {
         let totalUsage = 0;
         const currentMatches = [];
+        let isValid = true;
         
+        // 计算用水量并检查是否有负数
         for (let i = 0; i < n; i++) {
             const usage = perm[i] - records[i].previousWater + (records[i].waterAdjustment || 0);
+            
+            // 如果用水量为负数，此方案无效
+            if (usage < 0) {
+                isValid = false;
+                break;
+            }
+            
             totalUsage += usage;
             currentMatches.push({
                 record: records[i],
@@ -143,10 +153,21 @@ function simulateMatch(records, readings) {
             });
         }
         
-        if (totalUsage < minTotalUsage) {
+        // 只考虑所有用水量都非负的方案
+        if (isValid && totalUsage < minTotalUsage) {
             minTotalUsage = totalUsage;
+            hasValidMatch = true;
             bestMatches = currentMatches;
         }
+    }
+    
+    // 如果没有找到有效方案，返回提示
+    if (!hasValidMatch) {
+        return { 
+            matches: [], 
+            totalUsage: 0,
+            error: '未找到有效的匹配方案（所有方案都会产生负数用水量）'
+        };
     }
     
     return { matches: bestMatches, totalUsage: minTotalUsage };
@@ -194,9 +215,29 @@ function generatePermutations(arr) {
 function displayMatchPreview(result) {
     const container = document.getElementById('matchPreview');
     
+    // 如果没有有效匹配方案
+    if (result.error || result.matches.length === 0) {
+        const html = `
+            <div class="match-preview match-error">
+                <h4>⚠️ 无法匹配</h4>
+                <div class="error-message">
+                    <p>${result.error || '未找到有效的匹配方案'}</p>
+                    <p style="margin-top: 10px; color: #666;">
+                        <strong>可能原因：</strong><br>
+                        • 输入的水表读数小于上月读数，会产生负数用水量<br>
+                        • 请检查输入的读数是否正确<br>
+                        • 确认上月读数和补差值是否准确
+                    </p>
+                </div>
+            </div>
+        `;
+        container.innerHTML = html;
+        return;
+    }
+    
     const html = `
         <div class="match-preview">
-            <h4>🎯 最优匹配方案（总用水量最小）</h4>
+            <h4>🎯 最优匹配方案（总用水量最小，所有用水量非负）</h4>
             <div class="total-usage">
                 <strong>总用水量：</strong>${result.totalUsage.toFixed(2)} 吨
             </div>
@@ -208,7 +249,9 @@ function displayMatchPreview(result) {
                             <div>上月: ${m.record.previousWater}</div>
                             <div class="match-arrow">→</div>
                             <div class="match-current">本月: ${m.waterReading}</div>
-                            <div class="match-usage">用量: ${m.waterUsage.toFixed(2)} 吨</div>
+                            <div class="match-usage ${m.waterUsage < 0 ? 'negative' : ''}">
+                                用量: ${m.waterUsage.toFixed(2)} 吨
+                            </div>
                         </div>
                     </div>
                 `).join('')}

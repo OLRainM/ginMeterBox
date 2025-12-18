@@ -870,9 +870,9 @@ func (h *BillingHandler) SmartWaterMatch(c *gin.Context) {
 
 	// 检查匹配结果
 	if len(matches) == 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{
+		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
-			"error":   "智能匹配失败，未能生成匹配方案",
+			"error":   "未找到有效的匹配方案：所有可能的匹配都会产生负数用水量。请检查输入的水表读数是否正确，或确认上月读数和补差值是否准确。",
 		})
 		return
 	}
@@ -936,7 +936,7 @@ type WaterMatch struct {
 	WaterUsage   float64
 }
 
-// smartMatchWaterReadings 智能匹配水表读数（最小总用水量原则）
+// smartMatchWaterReadings 智能匹配水表读数（最小总用水量原则，且所有用水量必须非负）
 func smartMatchWaterReadings(records []*models.BillingRecord, readings []float64) []WaterMatch {
 	n := len(records)
 	
@@ -947,16 +947,18 @@ func smartMatchWaterReadings(records []*models.BillingRecord, readings []float64
 	
 	// 如果只有一个用户，直接返回
 	if n == 1 {
+		usage := readings[0] - records[0].PreviousWater + records[0].WaterAdjustment
 		return []WaterMatch{{
 			Record:       records[0],
 			WaterReading: readings[0],
-			WaterUsage:   readings[0] - records[0].PreviousWater + records[0].WaterAdjustment,
+			WaterUsage:   usage,
 		}}
 	}
 	
 	// 计算所有可能的匹配方案的总用水量
-	bestMatches := make([]WaterMatch, n)
+	var bestMatches []WaterMatch
 	minTotalUsage := float64(1e18) // 初始化为一个很大的数
+	hasValidMatch := false
 	
 	// 生成所有排列组合
 	permutations := generatePermutations(readings)
@@ -965,10 +967,18 @@ func smartMatchWaterReadings(records []*models.BillingRecord, readings []float64
 	for _, perm := range permutations {
 		totalUsage := 0.0
 		currentMatches := make([]WaterMatch, n)
+		isValid := true
 		
-		// 计算当前排列的总用水量
+		// 计算当前排列的总用水量，并检查是否有负数
 		for i := 0; i < n; i++ {
 			usage := perm[i] - records[i].PreviousWater + records[i].WaterAdjustment
+			
+			// 如果用水量为负数，则此方案无效
+			if usage < 0 {
+				isValid = false
+				break
+			}
+			
 			totalUsage += usage
 			currentMatches[i] = WaterMatch{
 				Record:       records[i],
@@ -977,12 +987,18 @@ func smartMatchWaterReadings(records []*models.BillingRecord, readings []float64
 			}
 		}
 		
-		// 如果当前方案的总用水量更小，则更新最佳方案
-		if totalUsage < minTotalUsage {
+		// 只考虑所有用水量都非负的方案
+		if isValid && totalUsage < minTotalUsage {
 			minTotalUsage = totalUsage
+			hasValidMatch = true
 			bestMatches = make([]WaterMatch, n)
 			copy(bestMatches, currentMatches)
 		}
+	}
+	
+	// 如果没有找到有效方案，返回空结果
+	if !hasValidMatch {
+		return []WaterMatch{}
 	}
 	
 	return bestMatches
