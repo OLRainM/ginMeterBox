@@ -104,16 +104,14 @@ export function setupFormHandler(onSuccess) {
     });
 }
 
-// 点击模态框外部关闭
+// 点击模态框外部关闭（编辑记录模态框除外，只能通过关闭按钮关闭）
 window.onclick = function(event) {
-    const formModal = document.getElementById('formModal');
+    // 注意：formModal（编辑记录）不在这里处理，只能通过关闭按钮关闭
     const calcModal = document.getElementById('calculatorModal');
     const continueModal = document.getElementById('continueModal');
     const batchExtraFeeModal = document.getElementById('batchExtraFeeModal');
+    const smartMatchModal = document.getElementById('smartMatchModal');
     
-    if (event.target === formModal) {
-        closeModal();
-    }
     if (event.target === calcModal && window.billingApp && window.billingApp.closeCalculator) {
         window.billingApp.closeCalculator();
     }
@@ -122,5 +120,8 @@ window.onclick = function(event) {
     }
     if (event.target === batchExtraFeeModal && window.billingApp && window.billingApp.closeBatchExtraFeeModal) {
         window.billingApp.closeBatchExtraFeeModal();
+    }
+    if (event.target === smartMatchModal && window.billingApp && window.billingApp.closeSmartMatchModal) {
+        window.billingApp.closeSmartMatchModal();
     }
 }
