@@ -35,6 +35,8 @@ func main() {
 	r.Static("/reports", "./reports")
 	r.Static("/exports", "./exports")
 	r.StaticFile("/", "./static/index.html")
+	r.StaticFile("/total-meter.html", "./static/total-meter.html")
+	r.StaticFile("/debug.html", "./static/debug.html")
 
 	// API路由
 	api := r.Group("/api/v1")
