@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>总表计算器 - 水电费系统</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .total-meter-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .back-button {
+            margin-bottom: 20px;
+        }
+        
+        .input-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        .meter-group {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid #667eea;
+        }
+        
+        .meter-group h3 {
+            color: #667eea;
+            margin-top: 0;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .meter-input {
+            margin-bottom: 15px;
+        }
+        
+        .meter-input label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .meter-input input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .meter-input input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .calculate-button {
+            text-align: center;
+            margin: 30px 0;
+        }
+        
+        .results-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .summary-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .summary-card h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .summary-card .value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .results-table th,
+        .results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .results-table th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .results-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .adjustment-value {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 18px;
+        }
+        
+        .adjustment-value.negative {
+            color: #dc3545;
+        }
+        
+        .adjustment-value.positive {
+            color: #28a745;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        
+        .info-box h4 {
+            margin: 0 0 10px 0;
+            color: #667eea;
+        }
+        
+        .formula {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="total-meter-container">
+        <div class="back-button">
+            <a href="/" class="btn btn-secondary">← 返回主页</a>
+        </div>
+        
+        <header style="text-align: center; margin-bottom: 30px;">
+            <h1>📊 总表计算器</h1>
+            <p style="color: #666;">快速计算每个用户的水电补差值</p>
+        </header>
+        
+        <div class="info-box">
+            <h4>💡 使用说明</h4>
+            <p>1. 输入上月和本月的水电总表读数</p>
+            <p>2. 系统会自动获取所有用户的分表数据</p>
+            <p>3. 计算公式：<strong>补差 = 总表用量 - 各分表用量之和</strong></p>
+            <div class="formula">
+                水表补差 = (总表本月水 - 总表上月水) - Σ(用户本月水 - 用户上月水)<br>
+                电表补差 = (总表本月电 - 总表上月电) - Σ(用户本月电 - 用户上月电)
+            </div>
+        </div>
+        
+        <div class="input-section">
+            <h2>输入总表数据</h2>
+            
+            <div class="input-grid">
+                <div class="meter-group">
+                    <h3>💧 水表总表</h3>
+                    <div class="meter-input">
+                        <label>上月总表读数</label>
+                        <input type="number" id="prevTotalWater" step="0.01" placeholder="例如: 5000">
+                    </div>
+                    <div class="meter-input">
+                        <label>本月总表读数</label>
+                        <input type="number" id="currTotalWater" step="0.01" placeholder="例如: 5500">
+                    </div>
+                </div>
+                
+                <div class="meter-group">
+                    <h3>⚡ 电表总表</h3>
+                    <div class="meter-input">
+                        <label>上月总表读数</label>
+                        <input type="number" id="prevTotalElectric" step="0.01" placeholder="例如: 20000">
+                    </div>
+                    <div class="meter-input">
+                        <label>本月总表读数</label>
+                        <input type="number" id="currTotalElectric" step="0.01" placeholder="例如: 22000">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="calculate-button">
+                <button class="btn btn-primary" onclick="calculateAdjustments()" style="padding: 15px 40px; font-size: 18px;">
+                    🧮 计算补差
+                </button>
+            </div>
+        </div>
+        
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <h2>计算结果</h2>
+            
+            <div class="summary-cards">
+                <div class="summary-card">
+                    <h4>总表水用量</h4>
+                    <div class="value" id="totalWaterUsage">0</div>
+                    <small>吨</small>
+                </div>
+                <div class="summary-card">
+                    <h4>分表水用量</h4>
+                    <div class="value" id="subWaterUsage">0</div>
+                    <small>吨</small>
+                </div>
+                <div class="summary-card">
+                    <h4>总表电用量</h4>
+                    <div class="value" id="totalElectricUsage">0</div>
+                    <small>度</small>
+                </div>
+                <div class="summary-card">
+                    <h4>分表电用量</h4>
+                    <div class="value" id="subElectricUsage">0</div>
+                    <small>度</small>
+                </div>
+            </div>
+            
+            <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="margin: 0 0 10px 0; color: #856404;">📋 建议的补差值</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <strong>💧 水表补差：</strong>
+                        <span class="adjustment-value" id="waterAdjustmentValue">0</span> 吨
+                    </div>
+                    <div>
+                        <strong>⚡ 电表补差：</strong>
+                        <span class="adjustment-value" id="electricAdjustmentValue">0</span> 度
+                    </div>
+                </div>
+                <p style="margin: 10px 0 0 0; color: #856404; font-size: 14px;">
+                    💡 提示：将此补差值平均分配给各用户，或使用批量设置功能统一设置
+                </p>
+            </div>
+            
+            <h3>用户明细</h3>
+            <table class="results-table">
+                <thead>
+                    <tr>
+                        <th>房号</th>
+                        <th>上月水表</th>
+                        <th>本月水表</th>
+                        <th>水用量</th>
+                        <th>上月电表</th>
+                        <th>本月电表</th>
+                        <th>电用量</th>
+                    </tr>
+                </thead>
+                <tbody id="resultsTableBody">
+                    <tr>
+                        <td colspan="7" class="no-data">请先计算</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div style="margin-top: 30px; text-align: center;">
+                <button class="btn btn-success" onclick="applyAdjustments()">
+                    ✅ 应用补差到所有用户
+                </button>
+                <button class="btn btn-secondary" onclick="window.location.href='/'">
+                    返回主页
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { showNotification } from './js/utils.js';
+        import { fetchRecords, batchSetAdjustment } from './js/api.js';
+        
+        let calculatedRecords = [];
+        let waterAdjustment = 0;
+        let electricAdjustment = 0;
+        
+        window.calculateAdjustments = async function() {
+            const prevTotalWater = parseFloat(document.getElementById('prevTotalWater').value);
+            const currTotalWater = parseFloat(document.getElementById('currTotalWater').value);
+            const prevTotalElectric = parseFloat(document.getElementById('prevTotalElectric').value);
+            const currTotalElectric = parseFloat(document.getElementById('currTotalElectric').value);
+            
+            // 验证输入
+            if (isNaN(prevTotalWater) || isNaN(currTotalWater)) {
+                showNotification('请输入有效的水表总表数据', 'error');
+                return;
+            }
+            
+            if (isNaN(prevTotalElectric) || isNaN(currTotalElectric)) {
+                showNotification('请输入有效的电表总表数据', 'error');
+                return;
+            }
+            
+            // 获取所有用户数据
+            const records = await fetchRecords();
+            
+            if (!records || records.length === 0) {
+                showNotification('没有找到用户数据', 'error');
+                return;
+            }
+            
+            calculatedRecords = records;
+            
+            // 计算总表用量
+            const totalWaterUsage = currTotalWater - prevTotalWater;
+            const totalElectricUsage = currTotalElectric - prevTotalElectric;
+            
+            // 计算所有分表用量之和
+            let subWaterUsage = 0;
+            let subElectricUsage = 0;
+            
+            records.forEach(record => {
+                const waterUsage = record.currentWater - record.previousWater;
+                const electricUsage = record.currentElectric - record.previousElectric;
+                subWaterUsage += waterUsage;
+                subElectricUsage += electricUsage;
+            });
+            
+            // 计算补差
+            waterAdjustment = totalWaterUsage - subWaterUsage;
+            electricAdjustment = totalElectricUsage - subElectricUsage;
+            
+            // 显示结果
+            document.getElementById('totalWaterUsage').textContent = totalWaterUsage.toFixed(2);
+            document.getElementById('subWaterUsage').textContent = subWaterUsage.toFixed(2);
+            document.getElementById('totalElectricUsage').textContent = totalElectricUsage.toFixed(2);
+            document.getElementById('subElectricUsage').textContent = subElectricUsage.toFixed(2);
+            
+            const waterAdjEl = document.getElementById('waterAdjustmentValue');
+            const electricAdjEl = document.getElementById('electricAdjustmentValue');
+            
+            waterAdjEl.textContent = waterAdjustment.toFixed(2);
+            electricAdjEl.textContent = electricAdjustment.toFixed(2);
+            
+            // 设置颜色
+            waterAdjEl.className = 'adjustment-value ' + (waterAdjustment < 0 ? 'negative' : waterAdjustment > 0 ? 'positive' : '');
+            electricAdjEl.className = 'adjustment-value ' + (electricAdjustment < 0 ? 'negative' : electricAdjustment > 0 ? 'positive' : '');
+            
+            // 显示用户明细
+            const tbody = document.getElementById('resultsTableBody');
+            tbody.innerHTML = records.map(record => {
+                const waterUsage = record.currentWater - record.previousWater;
+                const electricUsage = record.currentElectric - record.previousElectric;
+                
+                return `
+                    <tr>
+                        <td><strong>${record.roomNumber}</strong></td>
+                        <td>${record.previousWater}</td>
+                        <td>${record.currentWater}</td>
+                        <td><strong>${waterUsage.toFixed(2)}</strong></td>
+                        <td>${record.previousElectric}</td>
+                        <td>${record.currentElectric}</td>
+                        <td><strong>${electricUsage.toFixed(2)}</strong></td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // 显示结果区域
+            document.getElementById('resultsSection').style.display = 'block';
+            
+            // 滚动到结果
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+            
+            showNotification('计算完成！', 'success');
+        };
+        
+        window.applyAdjustments = async function() {
+            if (calculatedRecords.length === 0) {
+                showNotification('请先计算补差', 'error');
+                return;
+            }
+            
+            const confirmMsg = `确定要将以下补差值应用到所有 ${calculatedRecords.length} 个用户吗？\n\n` +
+                              `水表补差: ${waterAdjustment.toFixed(2)} 吨\n` +
+                              `电表补差: ${electricAdjustment.toFixed(2)} 度`;
+            
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+            
+            const ids = calculatedRecords.map(r => r.id);
+            const result = await batchSetAdjustment(ids, waterAdjustment, electricAdjustment);
+            
+            if (result) {
+                showNotification(`成功为 ${result.count} 个用户设置补差！`, 'success');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+            }
+        };
+    </script>
+</body>
+</html>
