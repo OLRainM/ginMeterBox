@@ -14,9 +14,11 @@ import (
 func main() {
 	// 创建存储实例
 	store := storage.NewStorage()
+	totalMeterStore := storage.NewTotalMeterStorage()
 
 	// 创建处理器
 	billingHandler := handlers.NewBillingHandler(store)
+	totalMeterHandler := handlers.NewTotalMeterHandler(totalMeterStore)
 
 	// 创建Gin路由
 	r := gin.Default()
@@ -87,6 +89,16 @@ func main() {
 				"message": "Water and Electric Billing System is running",
 			})
 		})
+
+		// 总表管理路由
+		totalMeter := api.Group("/total-meter")
+		{
+			totalMeter.GET("", totalMeterHandler.GetAll)           // 获取所有总表记录
+			totalMeter.GET("/month", totalMeterHandler.GetByMonth) // 根据月份获取
+			totalMeter.POST("", totalMeterHandler.Create)          // 创建总表记录
+			totalMeter.PUT("/:month", totalMeterHandler.Update)    // 更新总表记录
+			totalMeter.DELETE("/:month", totalMeterHandler.Delete) // 删除总表记录
+		}
 	}
 
 	// 启动服务器
