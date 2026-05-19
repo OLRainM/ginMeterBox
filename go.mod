@@ -1,4 +1,4 @@
-module go-ele
+module ginMeterBox
 
 go 1.24.0
 

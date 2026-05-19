@@ -188,9 +188,10 @@
         
         <div class="info-box">
             <h4>💡 使用说明</h4>
-            <p>1. 输入上月和本月的水电总表读数</p>
-            <p>2. 系统会自动获取所有用户的分表数据</p>
-            <p>3. 计算公式：<strong>补差 = 总表用量 - 各分表用量之和</strong></p>
+            <p>1. 选择要计算的月份</p>
+            <p>2. 输入或加载该月份的总表读数</p>
+            <p>3. 系统会自动获取该月份所有用户的分表数据</p>
+            <p>4. 计算公式：<strong>补差 = 总表用量 - 各分表用量之和</strong></p>
             <div class="formula">
                 水表补差 = (总表本月水 - 总表上月水) - Σ(用户本月水 - 用户上月水)<br>
                 电表补差 = (总表本月电 - 总表上月电) - Σ(用户本月电 - 用户上月电)
@@ -198,7 +199,20 @@
         </div>
         
         <div class="input-section">
-            <h2>输入总表数据</h2>
+            <h2>选择月份</h2>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 10px; font-weight: bold;">选择要计算的月份：</label>
+                <input type="month" id="selectedMonth" style="padding: 12px; font-size: 16px; border: 2px solid #667eea; border-radius: 6px;" onchange="loadMonthData()">
+                <button class="btn btn-info" onclick="loadMonthData()" style="margin-left: 10px;">加载数据</button>
+            </div>
+            
+            <div id="savedRecordsSection" style="margin-top: 20px; display: none;">
+                <h3>历史总表记录</h3>
+                <div id="savedRecordsList"></div>
+            </div>
+            
+            <h2 style="margin-top: 30px;">输入总表数据</h2>
             
             <div class="input-grid">
                 <div class="meter-group">
@@ -229,6 +243,9 @@
             <div class="calculate-button">
                 <button class="btn btn-primary" onclick="calculateAdjustments()" style="padding: 15px 40px; font-size: 18px;">
                     🧮 计算补差
+                </button>
+                <button class="btn btn-success" onclick="saveTotalMeterRecord()" style="padding: 15px 40px; font-size: 18px; margin-left: 10px;">
+                    💾 保存总表记录
                 </button>
             </div>
         </div>
@@ -311,11 +328,175 @@
         import { showNotification } from './js/utils.js';
         import { fetchRecords, batchSetAdjustment } from './js/api.js';
         
+        const API_BASE_URL = 'http://localhost:8080/api/v1';
         let calculatedRecords = [];
         let waterAdjustment = 0;
         let electricAdjustment = 0;
+        let selectedMonth = '';
+        
+        // 加载月份数据
+        window.loadMonthData = async function() {
+            selectedMonth = document.getElementById('selectedMonth').value;
+            
+            if (!selectedMonth) {
+                showNotification('请选择月份', 'error');
+                return;
+            }
+            
+            // 尝试加载该月份的总表记录
+            try {
+                const response = await fetch(`${API_BASE_URL}/total-meter/month?month=${selectedMonth}`);
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    // 填充总表数据
+                    document.getElementById('currTotalWater').value = result.data.waterReading;
+                    document.getElementById('currTotalElectric').value = result.data.electricReading;
+                    showNotification(`已加载${selectedMonth}的总表记录`, 'success');
+                }
+            } catch (error) {
+                console.log('该月份暂无总表记录');
+            }
+            
+            // 加载历史记录列表
+            loadSavedRecords();
+        };
+        
+        // 加载所有保存的总表记录
+        async function loadSavedRecords() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/total-meter`);
+                const result = await response.json();
+                
+                if (result.success && result.data && result.data.length > 0) {
+                    const section = document.getElementById('savedRecordsSection');
+                    const list = document.getElementById('savedRecordsList');
+                    
+                    list.innerHTML = `
+                        <table class="results-table">
+                            <thead>
+                                <tr>
+                                    <th>月份</th>
+                                    <th>水表读数</th>
+                                    <th>电表读数</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${result.data.map(record => `
+                                    <tr>
+                                        <td><strong>${record.month}</strong></td>
+                                        <td>${record.waterReading}</td>
+                                        <td>${record.electricReading}</td>
+                                        <td>
+                                            <button class="btn btn-small btn-info" onclick="loadRecord('${record.month}')">加载</button>
+                                            <button class="btn btn-small btn-danger" onclick="deleteRecord('${record.month}')">删除</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                    
+                    section.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('加载历史记录失败:', error);
+            }
+        }
+        
+        // 加载指定月份的记录
+        window.loadRecord = async function(month) {
+            document.getElementById('selectedMonth').value = month;
+            await loadMonthData();
+        };
+        
+        // 删除记录
+        window.deleteRecord = async function(month) {
+            if (!confirm(`确定要删除${month}的总表记录吗？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/total-meter/${month}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('删除成功', 'success');
+                    loadSavedRecords();
+                }
+            } catch (error) {
+                showNotification('删除失败', 'error');
+            }
+        };
+        
+        // 保存总表记录
+        window.saveTotalMeterRecord = async function() {
+            const month = document.getElementById('selectedMonth').value;
+            const waterReading = parseFloat(document.getElementById('currTotalWater').value);
+            const electricReading = parseFloat(document.getElementById('currTotalElectric').value);
+            
+            if (!month) {
+                showNotification('请选择月份', 'error');
+                return;
+            }
+            
+            if (isNaN(waterReading) || isNaN(electricReading)) {
+                showNotification('请输入有效的总表读数', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/total-meter`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        month: month,
+                        waterReading: waterReading,
+                        electricReading: electricReading
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification('总表记录保存成功！', 'success');
+                    loadSavedRecords();
+                } else {
+                    // 如果已存在，尝试更新
+                    const updateResponse = await fetch(`${API_BASE_URL}/total-meter/${month}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            month: month,
+                            waterReading: waterReading,
+                            electricReading: electricReading
+                        })
+                    });
+                    
+                    const updateResult = await updateResponse.json();
+                    if (updateResult.success) {
+                        showNotification('总表记录更新成功！', 'success');
+                        loadSavedRecords();
+                    } else {
+                        showNotification(result.error || '保存失败', 'error');
+                    }
+                }
+            } catch (error) {
+                showNotification('保存失败', 'error');
+            }
+        };
         
         window.calculateAdjustments = async function() {
+            selectedMonth = document.getElementById('selectedMonth').value;
+            
+            if (!selectedMonth) {
+                showNotification('请先选择月份', 'error');
+                return;
+            }
+            
             const prevTotalWater = parseFloat(document.getElementById('prevTotalWater').value);
             const currTotalWater = parseFloat(document.getElementById('currTotalWater').value);
             const prevTotalElectric = parseFloat(document.getElementById('prevTotalElectric').value);
@@ -332,11 +513,12 @@
                 return;
             }
             
-            // 获取所有用户数据
-            const records = await fetchRecords();
+            // 获取指定月份的用户数据
+            const allRecords = await fetchRecords();
+            const records = allRecords.filter(r => r.billingMonth === selectedMonth);
             
             if (!records || records.length === 0) {
-                showNotification('没有找到用户数据', 'error');
+                showNotification(`没有找到${selectedMonth}的用户数据`, 'error');
                 return;
             }
             
@@ -428,6 +610,16 @@
                     window.location.href = '/';
                 }, 2000);
             }
+        };
+        // 自动运行测试
+        window.onload = function() {
+            // 设置默认月份为当前月份
+            const now = new Date();
+            const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            document.getElementById('selectedMonth').value = currentMonth;
+            
+            // 加载历史记录
+            loadSavedRecords();
         };
     </script>
 </body>

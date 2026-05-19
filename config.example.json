@@ -1,0 +1,19 @@
+{
+  "server": {
+    "port": ":8080"
+  },
+  "data": {
+    "billingFile": "data/billing_records.json",
+    "totalMeterFile": "data/total_meter_records.json"
+  },
+  "export": {
+    "dir": "exports"
+  },
+  "report": {
+    "dir": "reports"
+  },
+  "font": {
+    "bold": "C:\\Windows\\Fonts\\msyhbd.ttc",
+    "regular": "C:\\Windows\\Fonts\\msyh.ttc"
+  }
+}

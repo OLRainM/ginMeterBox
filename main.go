@@ -1,24 +1,28 @@
-package main
+﻿package main
 
 import (
 	"log"
 	"net/http"
 
-	"go-ele/handlers"
-	"go-ele/storage"
+	"ginMeterBox/config"
+	"ginMeterBox/handlers"
+	"ginMeterBox/repository"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	// 创建存储实例
-	store := storage.NewStorage()
-	totalMeterStore := storage.NewTotalMeterStorage()
+	// 加载配置
+	cfg := config.Load("config.json")
+
+	// 创建仓储实例
+	billingRepo := repository.NewBillingJSONRepo(cfg.Data.BillingFile)
+	totalMeterRepo := repository.NewTotalMeterJSONRepo(cfg.Data.TotalMeterFile)
 
 	// 创建处理器
-	billingHandler := handlers.NewBillingHandler(store)
-	totalMeterHandler := handlers.NewTotalMeterHandler(totalMeterStore)
+	billingHandler := handlers.NewBillingHandler(billingRepo)
+	totalMeterHandler := handlers.NewTotalMeterHandler(totalMeterRepo)
 
 	// 创建Gin路由
 	r := gin.Default()
@@ -46,38 +50,38 @@ func main() {
 		// 账单相关路由
 		billing := api.Group("/billing")
 		{
-			billing.GET("", billingHandler.GetAll)           // 获取所有记录
-			billing.GET("/:id", billingHandler.GetByID)      // 根据ID获取
-			billing.POST("", billingHandler.Create)          // 创建新记录
-			billing.PUT("/:id", billingHandler.Update)       // 更新记录
-			billing.DELETE("/:id", billingHandler.Delete)    // 删除记录
-			billing.GET("/month", billingHandler.GetByMonth) // 按月份查询
+			billing.GET("", billingHandler.GetAll)               // 获取所有记录
+			billing.GET("/:id", billingHandler.GetByID)          // 根据ID获取
+			billing.POST("", billingHandler.Create)              // 创建新记录
+			billing.PUT("/:id", billingHandler.Update)           // 更新记录
+			billing.DELETE("/:id", billingHandler.Delete)        // 删除记录
+			billing.GET("/month", billingHandler.GetByMonth)     // 按月份查询
 			billing.POST("/calculate", billingHandler.Calculate) // 计算费用
-			
+
 			// 新功能：图片生成
-			billing.GET("/report/generate", billingHandler.GenerateReport)     // 生成报表图片
-			billing.GET("/card/:id", billingHandler.GenerateCard)              // 生成单个卡片
-			billing.GET("/download", billingHandler.DownloadImage)             // 下载图片
-			
+			billing.GET("/report/generate", billingHandler.GenerateReport) // 生成报表图片
+			billing.GET("/card/:id", billingHandler.GenerateCard)          // 生成单个卡片
+			billing.GET("/download", billingHandler.DownloadImage)         // 下载图片
+
 			// 新功能：自动延续
-			billing.POST("/continue", billingHandler.ContinueFromPrevious)     // 从上月数据创建
+			billing.POST("/continue", billingHandler.ContinueFromPrevious)            // 从上月数据创建
 			billing.POST("/batch-continue", billingHandler.BatchContinueFromPrevious) // 批量自动延续
-			billing.GET("/latest/:room", billingHandler.GetLatestByRoom)       // 获取最新记录
-			
+			billing.GET("/latest/:room", billingHandler.GetLatestByRoom)              // 获取最新记录
+
 			// 新功能：批量导入导出
-			billing.POST("/import", billingHandler.BatchImport)                // 批量导入JSON
-			billing.GET("/export", billingHandler.ExportToJSON)                // 导出为JSON
-			billing.POST("/export-excel", billingHandler.ExportToExcel)        // 导出选中记录为Excel
-			
+			billing.POST("/import", billingHandler.BatchImport)         // 批量导入JSON
+			billing.GET("/export", billingHandler.ExportToJSON)         // 导出为JSON
+			billing.POST("/export-excel", billingHandler.ExportToExcel) // 导出选中记录为Excel
+
 			// 新功能：批量设置额外费用
-			billing.POST("/batch-extra-fee", billingHandler.BatchSetExtraFee)  // 批量设置额外费用
-			
+			billing.POST("/batch-extra-fee", billingHandler.BatchSetExtraFee) // 批量设置额外费用
+
 			// 新功能：批量设置补差
 			billing.POST("/batch-adjustment", billingHandler.BatchSetAdjustment) // 批量设置水电补差
-			
+
 			// 新功能：批量删除
-			billing.POST("/batch-delete", billingHandler.BatchDelete)          // 批量删除记录
-			
+			billing.POST("/batch-delete", billingHandler.BatchDelete) // 批量删除记录
+
 			// 新功能：智能水表匹配
 			billing.POST("/smart-water-match", billingHandler.SmartWaterMatch) // 智能水表匹配
 		}
@@ -85,7 +89,7 @@ func main() {
 		// 健康检查
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
-				"status": "ok",
+				"status":  "ok",
 				"message": "Water and Electric Billing System is running",
 			})
 		})
@@ -102,8 +106,8 @@ func main() {
 	}
 
 	// 启动服务器
-	log.Println("Server starting on http://localhost:8080")
-	if err := r.Run(":8080"); err != nil {
+	log.Printf("Server starting on http://localhost%s\n", cfg.Server.Port)
+	if err := r.Run(cfg.Server.Port); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
 }

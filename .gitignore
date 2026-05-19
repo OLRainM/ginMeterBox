@@ -58,3 +58,12 @@ coverage.html
 # Build artifacts
 dist/
 build/
+
+# Config (may contain local paths)
+config.json
+
+# Old storage package (deprecated)
+/storage/
+
+# Docs (generated, not needed in repo)
+/docs/
