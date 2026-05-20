@@ -53,6 +53,45 @@
                 </div>
             </div>
 
+            <!-- 水电差分析面板 -->
+            <div class="diff-panel" id="diffPanel" style="display:none;">
+                <h3>⚖️ 水电差分析</h3>
+                <div class="diff-grid">
+                    <div class="diff-item">
+                        <span class="diff-label">💧 总表用水量</span>
+                        <span class="diff-value" id="totalMeterWater">-</span>
+                    </div>
+                    <div class="diff-item">
+                        <span class="diff-label">💧 各户用水之和</span>
+                        <span class="diff-value" id="sumUserWater">-</span>
+                    </div>
+                    <div class="diff-item">
+                        <span class="diff-label">💧 水差</span>
+                        <span class="diff-value diff-highlight" id="waterDiff">-</span>
+                    </div>
+                    <div class="diff-item">
+                        <span class="diff-label">💧 建议补差 (÷27)</span>
+                        <span class="diff-value diff-suggest" id="waterSuggest">-</span>
+                    </div>
+                    <div class="diff-item">
+                        <span class="diff-label">⚡ 总表用电量</span>
+                        <span class="diff-value" id="totalMeterElectric">-</span>
+                    </div>
+                    <div class="diff-item">
+                        <span class="diff-label">⚡ 各户用电之和</span>
+                        <span class="diff-value" id="sumUserElectric">-</span>
+                    </div>
+                    <div class="diff-item">
+                        <span class="diff-label">⚡ 电差</span>
+                        <span class="diff-value diff-highlight" id="electricDiff">-</span>
+                    </div>
+                    <div class="diff-item">
+                        <span class="diff-label">⚡ 建议补差 (÷27)</span>
+                        <span class="diff-value diff-suggest" id="electricSuggest">-</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- 统计面板 -->
             <div class="statistics">
                 <div class="stat-card">
@@ -127,9 +166,9 @@
                             <th><input type="checkbox" id="selectAll" onchange="window.billingApp.toggleSelectAll()"></th>
                             <th>住户</th>
                             <th>缴费月份</th>
-                            <th>用水量(吨)</th>
+                            <th>用水量<br><small>表显/加差</small></th>
                             <th>水费(元)</th>
-                            <th>用电量(度)</th>
+                            <th>用电量<br><small>表显/加差</small></th>
                             <th>电费(元)</th>
                             <th>管理费(元)</th>
                             <th>额外费用</th>

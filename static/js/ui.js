@@ -26,14 +26,18 @@ export function displayRecords(records) {
             extraFeesDisplay = `<span title="${feeNames}">¥${extraTotal.toFixed(2)} (${record.extraFees.length}项)</span>`;
         }
 
+        // 表显用量（不含补差）
+        const rawWater = (record.currentWater - record.previousWater).toFixed(1);
+        const rawElectric = (record.currentElectric - record.previousElectric).toFixed(1);
+
         return `
         <tr>
             <td><input type="checkbox" class="record-checkbox" value="${record.id}"></td>
             <td><strong>${record.roomNumber}</strong></td>
             <td>${record.billingMonth}</td>
-            <td>${record.waterUsage.toFixed(2)}</td>
+            <td><span class="raw-val">${rawWater}</span><span class="adj-val">${record.waterUsage.toFixed(1)}</span></td>
             <td>¥${record.totalWaterCost.toFixed(2)}</td>
-            <td>${record.electricUsage.toFixed(2)}</td>
+            <td><span class="raw-val">${rawElectric}</span><span class="adj-val">${record.electricUsage.toFixed(1)}</span></td>
             <td>¥${record.totalElectricCost.toFixed(2)}</td>
             <td>¥${record.managementFee.toFixed(2)}</td>
             <td>${extraFeesDisplay}</td>

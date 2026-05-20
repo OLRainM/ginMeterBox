@@ -17,10 +17,10 @@ export async function fetchRecords(sortOrder = null) {
         if (sortOrder) {
             url += `?sortBy=room&order=${sortOrder}`;
         }
-        
+
         const response = await fetch(url);
         const result = await response.json();
-        
+
         if (result.success) {
             return result.data || [];
         }
@@ -41,7 +41,7 @@ export async function fetchRecordById(id) {
     try {
         const response = await fetch(`${API_BASE_URL}/billing/${id}`);
         const result = await response.json();
-        
+
         if (result.success) {
             return result.data;
         }
@@ -67,9 +67,9 @@ export async function createRecord(data) {
             },
             body: JSON.stringify(data)
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             showNotification('添加成功', 'success');
             return true;
@@ -99,9 +99,9 @@ export async function updateRecord(id, data) {
             },
             body: JSON.stringify(data)
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             showNotification('更新成功', 'success');
             return true;
@@ -127,7 +127,7 @@ export async function deleteRecord(id) {
             method: 'DELETE'
         });
         const result = await response.json();
-        
+
         if (result.success) {
             showNotification('删除成功', 'success');
             return true;
@@ -156,9 +156,9 @@ export async function batchDeleteRecords(ids) {
             },
             body: JSON.stringify({ ids })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             showNotification(`成功删除 ${result.count} 条记录`, 'success');
             return result;
@@ -187,9 +187,9 @@ export async function exportToExcel(ids) {
             },
             body: JSON.stringify({ ids })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             return result;
         } else {
@@ -219,9 +219,9 @@ export async function batchSetExtraFees(ids, extraFees, mode) {
             },
             body: JSON.stringify({ ids, extraFees, mode })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             const modeText = mode === 'append' ? '追加' : '替换';
             showNotification(`成功为${result.count}条记录${modeText}额外费用！`, 'success');
@@ -246,7 +246,7 @@ export async function fetchLatestRecord(roomNumber) {
     try {
         const response = await fetch(`${API_BASE_URL}/billing/latest/${roomNumber}`);
         const result = await response.json();
-        
+
         if (result.success) {
             return result.data;
         } else {
@@ -275,9 +275,9 @@ export async function continueRecord(roomNumber, newMonth) {
             },
             body: JSON.stringify({ roomNumber, newMonth })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             showNotification(result.message || '自动延续成功！', 'success');
             return true;
@@ -307,9 +307,9 @@ export async function batchContinueRecords(roomNumbers, newMonth) {
             },
             body: JSON.stringify({ roomNumbers, newMonth })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             showNotification(`成功为 ${result.count} 个住户创建新记录！`, 'success');
             return result;
@@ -334,7 +334,7 @@ export async function batchContinueRecords(roomNumbers, newMonth) {
 export async function batchSetAdjustment(ids, waterAdjustment, electricAdjustment) {
     try {
         const body = { ids };
-        
+
         // 只添加非null的值
         if (waterAdjustment !== null && waterAdjustment !== undefined) {
             body.waterAdjustment = waterAdjustment;
@@ -342,7 +342,7 @@ export async function batchSetAdjustment(ids, waterAdjustment, electricAdjustmen
         if (electricAdjustment !== null && electricAdjustment !== undefined) {
             body.electricAdjustment = electricAdjustment;
         }
-        
+
         const response = await fetch(`${API_BASE_URL}/billing/batch-adjustment`, {
             method: 'POST',
             headers: {
@@ -350,9 +350,9 @@ export async function batchSetAdjustment(ids, waterAdjustment, electricAdjustmen
             },
             body: JSON.stringify(body)
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             showNotification(`✅ ${result.message}`, 'success');
             return result;
@@ -382,17 +382,17 @@ export async function smartWaterMatch(ids, waterReadings) {
             },
             body: JSON.stringify({ ids, waterReadings })
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             showNotification(`✅ ${result.message}`, 'success');
-            
+
             // 显示匹配详情
             if (result.matches && result.matches.length > 0) {
                 console.log('匹配结果:', result.matches);
             }
-            
+
             return result;
         } else {
             showNotification('智能匹配失败: ' + result.error, 'error');
@@ -401,6 +401,23 @@ export async function smartWaterMatch(ids, waterReadings) {
     } catch (error) {
         console.error('智能匹配失败:', error);
         showNotification('智能匹配失败', 'error');
+        return null;
+    }
+}
+
+
+/**
+ * 获取指定月份的总表记录
+ * @param {string} month - 月份
+ * @returns {Promise<Object|null>} 总表记录
+ */
+export async function fetchTotalMeter(month) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/total-meter/month?month=${month}`);
+        const result = await response.json();
+        if (result.success) return result.data;
+        return null;
+    } catch (error) {
         return null;
     }
 }
