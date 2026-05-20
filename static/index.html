@@ -3,96 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>水电费计算系统</title>
+    <title>ginMeterBox - 水电费管理</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>💧⚡ 水电费计算管理系统</h1>
-            <p class="subtitle">Water & Electric Billing Management System</p>
+            <h1>ginMeterBox</h1>
+            <p class="subtitle">水电费计算管理系统</p>
         </header>
 
         <div class="main-content">
+            <!-- 月份选择（主入口） -->
+            <div class="month-selector">
+                <label>选择月份：</label>
+                <input type="month" id="monthFilter" onchange="window.billingApp.applyFilters()">
+                <select id="roomFilter" onchange="window.billingApp.applyFilters()">
+                    <option value="">全部房号</option>
+                </select>
+                <button class="btn btn-small" onclick="window.billingApp.clearFilter()">清除</button>
+                <button class="btn btn-small" onclick="window.billingApp.sortByRoom('asc')">🔼 房号升序</button>
+                <button class="btn btn-small" onclick="window.billingApp.sortByRoom('desc')">🔽 房号降序</button>
+            </div>
+
             <!-- 操作面板 -->
             <div class="control-panel">
                 <div class="price-config">
-                    <h3>价格配置</h3>
-                    <div class="price-inputs">
-                        <div class="price-item">
-                            <label>水价 (元/吨):</label>
-                            <input type="number" id="waterPrice" value="4.3" step="0.1" min="0">
-                        </div>
-                        <div class="price-item">
-                            <label>电价 (元/度):</label>
-                            <input type="number" id="electricPrice" value="0.72" step="0.01" min="0">
-                        </div>
-                    </div>
+                    <span class="config-label">价格：</span>
+                    <label>水价</label>
+                    <input type="number" id="waterPrice" value="4.3" step="0.1" min="0">
+                    <label>电价</label>
+                    <input type="number" id="electricPrice" value="0.72" step="0.01" min="0">
                 </div>
 
                 <div class="actions">
-                    <button class="btn btn-primary" onclick="window.billingApp.showAddForm()">
-                        <span>➕</span> 新增记录
-                    </button>
-                    <button class="btn btn-success" onclick="window.billingApp.showContinueForm()">
-                        <span>🔄</span> 自动延续
-                    </button>
-                    <button class="btn btn-info" onclick="window.location.href='/total-meter.html'">
-                        <span>📊</span> 总表计算器
-                    </button>
-                    <button class="btn btn-secondary" onclick="window.billingApp.loadRecords()">
-                        <span>🔃</span> 刷新数据
-                    </button>
-                    <button class="btn btn-info" onclick="window.billingApp.showCalculator()">
-                        <span>🧮</span> 快速计算
-                    </button>
-                </div>
-
-                <div class="filter-section">
-                    <label>按月份筛选:</label>
-                    <input type="month" id="monthFilter" onchange="window.billingApp.applyFilters()">
-                    <label style="margin-left: 15px;">按房号筛选:</label>
-                    <select id="roomFilter" onchange="window.billingApp.applyFilters()">
-                        <option value="">全部房号</option>
-                    </select>
-                    <button class="btn btn-small" onclick="window.billingApp.clearFilter()">清除筛选</button>
-                </div>
-
-                <div class="sort-section">
-                    <label>排序:</label>
-                    <button class="btn btn-small" onclick="window.billingApp.sortByRoom('asc')">
-                        🔼 房号升序
-                    </button>
-                    <button class="btn btn-small" onclick="window.billingApp.sortByRoom('desc')">
-                        🔽 房号降序
-                    </button>
-                </div>
-
-                <div class="report-section">
-                    <button class="btn btn-report" onclick="window.billingApp.generateReport()">
-                        <span>📊</span> 生成报表
-                    </button>
-                    <button class="btn btn-report" onclick="window.billingApp.generateSelectedReport()">
-                        <span>🎯</span> 生成选中
-                    </button>
+                    <button class="btn btn-primary" onclick="window.billingApp.showAddForm()">➕ 新增</button>
+                    <button class="btn btn-success" onclick="window.billingApp.showContinueForm()">🔄 延续</button>
+                    <button class="btn btn-info" onclick="window.location.href='/total-meter.html'">📊 总表</button>
+                    <button class="btn btn-secondary" onclick="window.billingApp.loadRecords()">🔃 刷新</button>
+                    <button class="btn btn-info" onclick="window.billingApp.showCalculator()">🧮 计算</button>
                 </div>
 
                 <div class="batch-section">
-                    <button class="btn btn-success" onclick="window.billingApp.showBatchExtraFeeModal()">
-                        <span>💵</span> 批量设置额外费用
-                    </button>
-                    <button class="btn btn-warning" onclick="window.billingApp.showBatchAdjustmentModal()">
-                        <span>⚖️</span> 批量设置补差
-                    </button>
-                    <button class="btn btn-primary" onclick="window.billingApp.showSmartMatchModal()">
-                        <span>🎯</span> 智能水表匹配
-                    </button>
-                    <button class="btn btn-info" onclick="window.billingApp.exportToExcel()">
-                        <span>📊</span> 导出Excel
-                    </button>
-                    <button class="btn btn-danger" onclick="window.billingApp.batchDeleteRecords()">
-                        <span>🗑️</span> 批量删除
-                    </button>
+                    <button class="btn btn-success" onclick="window.billingApp.showBatchExtraFeeModal()">💵 批量额外费用</button>
+                    <button class="btn btn-warning" onclick="window.billingApp.showBatchAdjustmentModal()">⚖️ 批量补差</button>
+                    <button class="btn btn-primary" onclick="window.billingApp.showSmartMatchModal()">🎯 智能匹配</button>
+                    <button class="btn btn-info" onclick="window.billingApp.exportToExcel()">📊 导出Excel</button>
+                    <button class="btn btn-danger" onclick="window.billingApp.batchDeleteRecords()">🗑️ 批量删除</button>
                 </div>
             </div>
 
@@ -536,6 +493,14 @@
         </div>
     </div>
 
-    <script type="module" src="/static/js/main.js?v=2.4.2"></script>
+    <!-- 悬浮工具栏 -->
+    <div class="floating-toolbar">
+        <button class="btn btn-report" onclick="window.billingApp.generateReport()">📊 生成报表</button>
+        <button class="btn btn-report" onclick="window.billingApp.generateSelectedReport()">🎯 生成选中</button>
+        <button class="btn btn-small" onclick="window.billingApp.selectAllRecords()">☑️ 全选</button>
+        <button class="btn btn-small" onclick="window.billingApp.clearSelection()">⬜ 取消全选</button>
+    </div>
+
+    <script type="module" src="/static/js/main.js?v=3.0.0"></script>
 </body>
 </html>

@@ -11,6 +11,7 @@ export const state = {
     allRecords: [],
     editingId: null,
     currentSortOrder: null, // 'asc' 或 'desc'
+    currentMonth: '', // 当前选中的月份
     extraFeeCounter: 0, // 额外费用输入框计数器
     batchExtraFeeCounter: 0 // 批量额外费用输入框计数器
 };

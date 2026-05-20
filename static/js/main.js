@@ -6,7 +6,7 @@
 import { state } from './config.js';
 import { showNotification } from './utils.js';
 import { fetchRecords, deleteRecord } from './api.js';
-import { displayRecords, updateStatistics, populateRoomFilter, toggleSelectAll, clearSelectionUI, updateSelectedStatistics } from './ui.js';
+import { displayRecords, updateStatistics, populateRoomFilter, toggleSelectAll, selectAllRecords, clearSelectionUI, updateSelectedStatistics, showEmptyMonth } from './ui.js';
 import { showAddForm, editRecord, closeModal, setupFormHandler } from './form.js';
 import { applyFilters, clearFilter, sortByRoom } from './filter.js';
 import { showCalculator, closeCalculator, setupCalculator } from './calculator.js';
@@ -28,17 +28,21 @@ class BillingApp {
      * 初始化应用
      */
     async init() {
-        // 加载数据
+        // 加载数据（填充筛选器，但不直接显示）
         await this.loadRecords();
-        
+
         // 设置表单处理器
         setupFormHandler(() => this.loadRecords(state.currentSortOrder));
-        
+
         // 设置计算器
         setupCalculator();
-        
+
         // 暴露全局方法供HTML调用
         this.exposeGlobalMethods();
+
+        // 初始显示空状态，要求先选月份
+        showEmptyMonth();
+        updateStatistics([]);
     }
 
     /**
@@ -48,18 +52,10 @@ class BillingApp {
         const records = await fetchRecords(sortOrder);
         state.allRecords = records;
         populateRoomFilter();
-        
-        // 检查是否有活动的筛选条件
-        const monthFilter = document.getElementById('monthFilter').value;
-        const roomFilter = document.getElementById('roomFilter').value;
-        
-        if (monthFilter || roomFilter) {
-            // 如果有筛选条件，重新应用筛选
+
+        // 如果已选月份，重新应用筛选
+        if (state.currentMonth) {
             applyFilters();
-        } else {
-            // 没有筛选条件，显示所有记录
-            displayRecords(records);
-            updateStatistics(records);
         }
     }
 
@@ -107,6 +103,7 @@ class BillingApp {
             
             // 选择
             toggleSelectAll,
+            selectAllRecords,
             clearSelection: clearSelectionUI,
             
             // 计算器

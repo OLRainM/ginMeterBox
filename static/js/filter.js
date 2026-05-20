@@ -3,7 +3,7 @@
  */
 
 import { state } from './config.js';
-import { displayRecords, updateStatistics } from './ui.js';
+import { displayRecords, updateStatistics, showEmptyMonth } from './ui.js';
 import { fetchRecords } from './api.js';
 
 /**
@@ -12,19 +12,21 @@ import { fetchRecords } from './api.js';
 export function applyFilters() {
     const month = document.getElementById('monthFilter').value;
     const room = document.getElementById('roomFilter').value;
-    
-    let filtered = state.allRecords;
-    
-    // 按月份筛选
-    if (month) {
-        filtered = filtered.filter(record => record.billingMonth === month);
+
+    state.currentMonth = month;
+
+    if (!month) {
+        showEmptyMonth();
+        updateStatistics([]);
+        return;
     }
-    
-    // 按房号筛选
+
+    let filtered = state.allRecords.filter(record => record.billingMonth === month);
+
     if (room) {
         filtered = filtered.filter(record => record.roomNumber === room);
     }
-    
+
     displayRecords(filtered);
     updateStatistics(filtered);
 }
@@ -35,22 +37,21 @@ export function applyFilters() {
 export function clearFilter() {
     document.getElementById('monthFilter').value = '';
     document.getElementById('roomFilter').value = '';
-    displayRecords(state.allRecords);
-    updateStatistics(state.allRecords);
+    state.currentMonth = '';
+    showEmptyMonth();
+    updateStatistics([]);
 }
 
 /**
  * 按房号排序
- * @param {string} order - 排序方式 (asc/desc)
- * @param {Function} onSuccess - 成功回调
  */
 export async function sortByRoom(order, onSuccess) {
     state.currentSortOrder = order;
     const records = await fetchRecords(order);
     state.allRecords = records;
-    
-    displayRecords(records);
-    updateStatistics(records);
-    
+
+    // 重新应用当前月份筛选
+    applyFilters();
+
     if (onSuccess) onSuccess(`已按房号${order === 'asc' ? '升序' : '降序'}排序`);
 }
