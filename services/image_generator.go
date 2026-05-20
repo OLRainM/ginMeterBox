@@ -95,14 +95,14 @@ func (ig *ImageGenerator) GenerateBillingReport(records []models.BillingRecord, 
 
 	// 绘制标题（字体大小根据宽度调整，增大以便手机查看）
 	dc.SetColor(color.White)
-	titleSize := 56      // 42 -> 56
-	subtitleSize := 24   // 18 -> 24
+	titleSize := 56    // 42 -> 56
+	subtitleSize := 24 // 18 -> 24
 	if totalWidth < 800 {
-		titleSize = 42      // 32 -> 42
-		subtitleSize = 18   // 14 -> 18
+		titleSize = 42    // 32 -> 42
+		subtitleSize = 18 // 14 -> 18
 	} else if totalWidth > 2000 {
-		titleSize = 68      // 52 -> 68
-		subtitleSize = 28   // 22 -> 28
+		titleSize = 68    // 52 -> 68
+		subtitleSize = 28 // 22 -> 28
 	}
 
 	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(titleSize)); err != nil {
@@ -166,12 +166,12 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	scale := float64(width) / 520.0
 
 	// 自适应字体大小（增大以便手机查看）
-	titleFontSize := int(36 * scale)          // 24 -> 36
-	subtitleFontSize := int(16 * scale)       // 12 -> 16
-	headerFontSize := int(28 * scale)         // 20 -> 28
-	smallFontSize := int(15 * scale)          // 11 -> 15
-	sectionTitleFontSize := int(20 * scale)   // 14 -> 20
-	infoFontSize := int(17 * scale)           // 12 -> 17
+	titleFontSize := int(36 * scale)        // 24 -> 36
+	subtitleFontSize := int(16 * scale)     // 12 -> 16
+	headerFontSize := int(28 * scale)       // 20 -> 28
+	smallFontSize := int(15 * scale)        // 11 -> 15
+	sectionTitleFontSize := int(20 * scale) // 14 -> 20
+	infoFontSize := int(17 * scale)         // 12 -> 17
 
 	// 自适应间距和尺寸
 	padding := 20.0 * scale
@@ -372,8 +372,8 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 
 	// 总费用区域 - 醒目显示
 	currentY += feeCardHeight + 10*scale
-	totalLabelFontSize := int(22 * scale)  // 15 -> 22
-	totalValueFontSize := int(30 * scale)  // 20 -> 30
+	totalLabelFontSize := int(22 * scale) // 15 -> 22
+	totalValueFontSize := int(30 * scale) // 20 -> 30
 	dc.SetColor(color.RGBA{220, 53, 69, 255})
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, 42*scale, sectionCornerRadius)
 	dc.Fill()
@@ -569,235 +569,121 @@ func (ig *ImageGenerator) calculateTotals(records []models.BillingRecord) (total
 	return
 }
 
-// GenerateSimpleCard 生成简单卡片（单个用户）- 包含详细信息
+// GenerateSimpleCard 生成简单卡片（单个用户）- 简约风格
 func (ig *ImageGenerator) GenerateSimpleCard(record models.BillingRecord) (string, error) {
-	// 根据额外费用数量动态计算高度
-	baseHeight := 900
-	extraHeight := len(record.ExtraFees) * 30 // 每项额外费用增加30像素
-	totalHeight := baseHeight + extraHeight
+	// 动态高度
+	extraCount := len(record.ExtraFees)
+	totalHeight := 780 + extraCount*28
 
-	// 创建画布
-	dc := gg.NewContext(500, totalHeight)
+	dc := gg.NewContext(480, totalHeight)
 
-	// 渐变背景 - 蓝紫色渐变
-	for i := 0; i < totalHeight; i++ {
-		ratio := float64(i) / float64(totalHeight)
-		r := uint8(95 + ratio*40)  // 95-135
-		g := uint8(100 + ratio*60) // 100-160
-		b := uint8(230 - ratio*30) // 230-200
-		dc.SetRGB(float64(r)/255, float64(g)/255, float64(b)/255)
-		dc.DrawRectangle(0, float64(i), 500, 1)
-		dc.Fill()
-	}
+	// 浅灰背景
+	dc.SetRGB(0.96, 0.97, 0.98)
+	dc.Clear()
 
-	// 主卡片 - 白色圆角卡片
-	dc.SetColor(color.White)
-	dc.DrawRoundedRectangle(20, 20, 460, float64(totalHeight-40), 20)
-	dc.Fill()
-
-	// 顶部装饰条 - 渐变色
-	for i := 0; i < 100; i++ {
-		ratio := float64(i) / 100.0
-		r := uint8(102 + ratio*50)
-		g := uint8(126 + ratio*60)
-		b := uint8(234 - ratio*34)
-		dc.SetRGB(float64(r)/255, float64(g)/255, float64(b)/255)
-		dc.DrawRectangle(20, 20+float64(i), 460, 1)
-		dc.Fill()
-	}
-
-	// 标题区域
-	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 42); err != nil { // 32 -> 42
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 42)
-	}
-	dc.DrawStringAnchored("水电费账单", 250, 55, 0.5, 0.5)
-
-	// 副标题 - 发送时间
+	// 白色主卡片
 	dc.SetRGB(1, 1, 1)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 18); err != nil { // 14 -> 18
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 18)
-	}
-	sendTime := time.Now().Format("2006年01月")
-	dc.DrawStringAnchored(fmt.Sprintf("发送时间：%s", sendTime), 250, 90, 0.5, 0.5)
-
-	// 房间号卡片
-	dc.SetColor(color.RGBA{102, 126, 234, 255})
-	dc.DrawRoundedRectangle(40, 140, 420, 60, 10)
-	dc.Fill()
-	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 32); err != nil { // 24 -> 32
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 32)
-	}
-	dc.DrawStringAnchored(record.RoomNumber, 250, 155, 0.5, 0.5)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 18); err != nil { // 14 -> 18
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 18)
-	}
-	dc.DrawStringAnchored(fmt.Sprintf("账单月份：%s", record.BillingMonth), 250, 183, 0.5, 0.5)
-
-	// 水费区域
-	dc.SetColor(color.RGBA{23, 162, 184, 255})
-	dc.DrawRoundedRectangle(40, 220, 420, 35, 8)
-	dc.Fill()
-	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 24); err != nil { // 18 -> 24
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 24)
-	}
-	dc.DrawStringAnchored("【水费详情】", 250, 237, 0.5, 0.5)
-
-	// 水费信息卡片
-	dc.SetColor(color.RGBA{240, 248, 255, 255})
-	dc.DrawRoundedRectangle(40, 265, 420, 190, 10)
+	dc.DrawRoundedRectangle(16, 16, 448, float64(totalHeight-32), 8)
 	dc.Fill()
 
-	dc.SetColor(color.RGBA{51, 51, 51, 255})
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 20); err != nil { // 15 -> 20
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 20)
-	}
+	// 顶部色条
+	dc.SetRGB(0.26, 0.6, 0.88) // #4299e1
+	dc.DrawRoundedRectangle(16, 16, 448, 70, 8)
+	dc.Fill()
+	// 底部补方角
+	dc.DrawRectangle(16, 56, 448, 30)
+	dc.Fill()
 
-	waterInfo := []struct {
-		label string
-		value string
-	}{
-		{"本月水表", fmt.Sprintf("%.0f", record.CurrentWater)},
-		{"上月水表", fmt.Sprintf("%.0f", record.PreviousWater)},
-		{"水分摊", fmt.Sprintf("%.0f", record.WaterAdjustment)},
-		{"水价格", fmt.Sprintf("%.2f 元/吨", record.WaterPrice)},
-		{"用水量", fmt.Sprintf("%.1f 吨", record.WaterUsage)},
-		{"水费小计", fmt.Sprintf("¥%.2f", record.TotalWaterCost)},
+	// 标题
+	dc.SetRGB(1, 1, 1)
+	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 28); err != nil {
+		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 28)
 	}
+	dc.DrawStringAnchored("水电费账单", 240, 42, 0.5, 0.5)
+	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 14); err != nil {
+		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 14)
+	}
+	dc.DrawStringAnchored(fmt.Sprintf("%s · %s", record.RoomNumber, record.BillingMonth), 240, 70, 0.5, 0.5)
 
-	startY := 285.0
-	for i, info := range waterInfo {
-		y := startY + float64(i)*30
-		dc.DrawString(info.label, 60, y)
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 20); err != nil { // 15 -> 20
-			dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 20)
+	y := 110.0
+	loadRegular := func(size float64) {
+		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", size); err != nil {
+			dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", size)
 		}
-		dc.DrawStringAnchored(info.value, 430, y, 1.0, 0.5)
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 20); err != nil { // 15 -> 20
-			dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 20)
+	}
+	loadBold := func(size float64) {
+		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", size); err != nil {
+			dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", size)
 		}
 	}
 
-	// 电费区域
-	dc.SetColor(color.RGBA{255, 193, 7, 255})
-	dc.DrawRoundedRectangle(40, 475, 420, 35, 8)
+	// 绘制分区标题
+	drawSection := func(title string, r, g, b float64) {
+		dc.SetRGB(r, g, b)
+		dc.DrawRoundedRectangle(32, y, 416, 28, 4)
+		dc.Fill()
+		dc.SetRGB(1, 1, 1)
+		loadBold(15)
+		dc.DrawStringAnchored(title, 240, y+14, 0.5, 0.5)
+		y += 36
+	}
+
+	// 绘制键值行
+	drawRow := func(label, value string) {
+		dc.SetRGB(0.29, 0.33, 0.39)
+		loadRegular(15)
+		dc.DrawString(label, 48, y)
+		loadBold(15)
+		dc.DrawStringAnchored(value, 432, y, 1.0, 0.5)
+		y += 26
+	}
+
+	// 水费
+	drawSection("水费明细", 0.09, 0.64, 0.72)
+	drawRow("本月水表", fmt.Sprintf("%.0f", record.CurrentWater))
+	drawRow("上月水表", fmt.Sprintf("%.0f", record.PreviousWater))
+	drawRow("补差", fmt.Sprintf("%.0f", record.WaterAdjustment))
+	drawRow("用水量", fmt.Sprintf("%.1f 吨", record.WaterUsage))
+	drawRow("水单价", fmt.Sprintf("%.2f 元/吨", record.WaterPrice))
+	drawRow("水费小计", fmt.Sprintf("¥%.2f", record.TotalWaterCost))
+	y += 10
+
+	// 电费
+	drawSection("电费明细", 0.93, 0.55, 0.14)
+	drawRow("本月电表", fmt.Sprintf("%.0f", record.CurrentElectric))
+	drawRow("上月电表", fmt.Sprintf("%.0f", record.PreviousElectric))
+	drawRow("补差", fmt.Sprintf("%.0f", record.ElectricAdjustment))
+	drawRow("用电量", fmt.Sprintf("%.1f 度", record.ElectricUsage))
+	drawRow("电单价", fmt.Sprintf("%.2f 元/度", record.ElectricPrice))
+	drawRow("电费小计", fmt.Sprintf("¥%.2f", record.TotalElectricCost))
+	y += 10
+
+	// 其他费用
+	drawSection("其他费用", 0.42, 0.46, 0.49)
+	drawRow("管理费", fmt.Sprintf("¥%.2f", record.ManagementFee))
+	for _, fee := range record.ExtraFees {
+		drawRow(fee.Name, fmt.Sprintf("¥%.2f", fee.Amount))
+	}
+	y += 16
+
+	// 总费用
+	dc.SetRGB(0.86, 0.21, 0.27)
+	dc.DrawRoundedRectangle(32, y, 416, 44, 6)
 	dc.Fill()
-	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 24); err != nil { // 18 -> 24
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 24)
-	}
-	dc.DrawStringAnchored("【电费详情】", 250, 492, 0.5, 0.5)
-
-	// 电费信息卡片
-	dc.SetColor(color.RGBA{255, 253, 240, 255})
-	dc.DrawRoundedRectangle(40, 520, 420, 190, 10)
-	dc.Fill()
-
-	dc.SetColor(color.RGBA{51, 51, 51, 255})
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 20); err != nil { // 15 -> 20
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 20)
-	}
-
-	electricInfo := []struct {
-		label string
-		value string
-	}{
-		{"本月电表", fmt.Sprintf("%.0f", record.CurrentElectric)},
-		{"上月电表", fmt.Sprintf("%.0f", record.PreviousElectric)},
-		{"电分摊", fmt.Sprintf("%.0f", record.ElectricAdjustment)},
-		{"电价格", fmt.Sprintf("%.2f 元/度", record.ElectricPrice)},
-		{"用电量", fmt.Sprintf("%.1f 度", record.ElectricUsage)},
-		{"电费小计", fmt.Sprintf("¥%.2f", record.TotalElectricCost)},
-	}
-
-	startY = 540.0
-	for i, info := range electricInfo {
-		y := startY + float64(i)*30
-		dc.DrawString(info.label, 60, y)
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 20); err != nil { // 15 -> 20
-			dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 20)
-		}
-		dc.DrawStringAnchored(info.value, 430, y, 1.0, 0.5)
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 20); err != nil { // 15 -> 20
-			dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 20)
-		}
-	}
-
-	// 管理费区域
-	dc.SetColor(color.RGBA{108, 117, 125, 255})
-	dc.DrawRoundedRectangle(40, 730, 420, 35, 8)
-	dc.Fill()
-	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 24); err != nil { // 18 -> 24
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 24)
-	}
-	dc.DrawStringAnchored("【其他费用】", 250, 747, 0.5, 0.5)
-
-	// 管理费和额外费用卡片
-	itemCount := 1 + len(record.ExtraFees)
-	cardHeight := float64(itemCount*30 + 20)
-
-	dc.SetColor(color.RGBA{248, 249, 250, 255})
-	dc.DrawRoundedRectangle(40, 775, 420, cardHeight, 10)
-	dc.Fill()
-	dc.SetColor(color.RGBA{51, 51, 51, 255})
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 20); err != nil { // 15 -> 20
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 20)
-	}
-
-	// 管理费
-	itemY := 795.0
-	dc.DrawString("管理费", 60, itemY)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 20); err != nil { // 15 -> 20
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 20)
-	}
-	dc.DrawStringAnchored(fmt.Sprintf("¥%.2f", record.ManagementFee), 430, itemY, 1.0, 0.5)
-
-	// 额外费用（如果有）
-	if len(record.ExtraFees) > 0 {
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 20); err != nil { // 15 -> 20
-			dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 20)
-		}
-		for _, fee := range record.ExtraFees {
-			itemY += 30
-			dc.DrawString(fee.Name, 60, itemY)
-			if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 20); err != nil { // 15 -> 20
-				dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 20)
-			}
-			dc.DrawStringAnchored(fmt.Sprintf("¥%.2f", fee.Amount), 430, itemY, 1.0, 0.5)
-			if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 20); err != nil { // 15 -> 20
-				dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 20)
-			}
-		}
-	}
-
-	// 总费用区域 - 醒目显示
-	totalY := 785.0 + cardHeight + 10
-	dc.SetColor(color.RGBA{220, 53, 69, 255})
-	dc.DrawRoundedRectangle(40, totalY, 420, 50, 10)
-	dc.Fill()
-	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 24); err != nil { // 18 -> 24
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 24)
-	}
-	dc.DrawString("总费用", 60, totalY+27)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 32); err != nil { // 24 -> 32
-		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 32)
-	}
-	dc.DrawStringAnchored(fmt.Sprintf("¥%.2f", record.TotalCost), 430, totalY+27, 1.0, 0.5)
+	dc.SetRGB(1, 1, 1)
+	loadBold(18)
+	dc.DrawString("总费用", 52, y+25)
+	loadBold(26)
+	dc.DrawStringAnchored(fmt.Sprintf("¥%.2f", record.TotalCost), 432, y+24, 1.0, 0.5)
 
 	// 保存
 	filename := fmt.Sprintf("reports/card_%s_%s.png", record.RoomNumber, time.Now().Format("20060102150405"))
 	if err := os.MkdirAll("reports", 0755); err != nil {
 		return "", err
 	}
-
 	if err := dc.SavePNG(filename); err != nil {
 		return "", err
 	}
-
 	return filename, nil
 }
 

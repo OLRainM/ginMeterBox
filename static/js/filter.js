@@ -81,9 +81,10 @@ async function updateDiffPanel(month, records) {
     const totalWaterUsage = currentMeter.waterReading - prevMeter.waterReading;
     const totalElectricUsage = currentMeter.electricReading - prevMeter.electricReading;
 
-    // 各户用量之和（表显用量，不含补差）
-    const sumUserWater = records.reduce((s, r) => s + (r.currentWater - r.previousWater), 0);
-    const sumUserElectric = records.reduce((s, r) => s + (r.currentElectric - r.previousElectric), 0);
+    // 各户用量之和（表显用量，不含补差，排除总表）
+    const userRecords = records.filter(r => r.roomNumber !== '总表');
+    const sumUserWater = userRecords.reduce((s, r) => s + (r.currentWater - r.previousWater), 0);
+    const sumUserElectric = userRecords.reduce((s, r) => s + (r.currentElectric - r.previousElectric), 0);
 
     // 差值
     const waterDiff = totalWaterUsage - sumUserWater;
