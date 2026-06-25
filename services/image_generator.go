@@ -632,7 +632,7 @@ func (ig *ImageGenerator) GenerateSimpleCard(record models.BillingRecord) (strin
 	drawRow := func(label, value string) {
 		dc.SetRGB(0.29, 0.33, 0.39)
 		loadRegular(15)
-		dc.DrawString(label, 48, y)
+		dc.DrawStringAnchored(label, 48, y, 0, 0.5)
 		loadBold(15)
 		dc.DrawStringAnchored(value, 432, y, 1.0, 0.5)
 		y += 26
