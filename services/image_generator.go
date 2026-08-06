@@ -209,11 +209,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	// 顶部装饰条 - 渐变色
 	headerBarHeightInt := int(headerBarHeight)
 	for i := 0; i < headerBarHeightInt; i++ {
-		ratio := float64(i) / headerBarHeight
-		r := uint8(102 + ratio*50)
-		g := uint8(126 + ratio*60)
-		b := uint8(234 - ratio*34)
-		dc.SetRGB(float64(r)/255, float64(g)/255, float64(b)/255)
+		dc.SetColor(color.RGBA{37, 99, 235, 255})
 		dc.DrawRectangle(fx, fy+float64(i), fw, 1)
 		dc.Fill()
 	}
@@ -232,7 +228,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	dc.DrawStringAnchored(fmt.Sprintf("发送时间：%s", sendTime), fx+fw/2, fy+58*scale, 0.5, 0.5)
 
 	// 房间号卡片
-	dc.SetColor(color.RGBA{102, 126, 234, 255})
+	dc.SetColor(color.RGBA{37, 99, 235, 255})
 	dc.DrawRoundedRectangle(fx+padding, fy+100*scale, fw-2*padding, 50*scale, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.White)
@@ -247,7 +243,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 
 	// 水费区域
 	currentY := fy + 170*scale
-	dc.SetColor(color.RGBA{23, 162, 184, 255})
+	dc.SetColor(color.RGBA{3, 105, 161, 255})
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, 28*scale, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.White)
@@ -258,7 +254,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 
 	// 水费信息
 	currentY += 35 * scale
-	dc.SetColor(color.RGBA{240, 248, 255, 255})
+	dc.SetColor(color.RGBA{239, 246, 255, 255})
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, 160*scale, sectionCornerRadius)
 	dc.Fill()
 
@@ -295,7 +291,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 
 	// 电费区域
 	currentY += 175 * scale
-	dc.SetColor(color.RGBA{255, 193, 7, 255})
+	dc.SetColor(color.RGBA{71, 85, 105, 255})
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, 28*scale, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.White)
@@ -306,7 +302,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 
 	// 电费信息
 	currentY += 35 * scale
-	dc.SetColor(color.RGBA{255, 253, 240, 255})
+	dc.SetColor(color.RGBA{248, 250, 252, 255})
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, 160*scale, sectionCornerRadius)
 	dc.Fill()
 
@@ -342,7 +338,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 
 	// 管理费区域
 	currentY += 175 * scale
-	dc.SetColor(color.RGBA{108, 117, 125, 255})
+	dc.SetColor(color.RGBA{71, 85, 105, 255})
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, 28*scale, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.White)
@@ -358,7 +354,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	itemCount := 1 + len(record.ExtraFees)
 	feeCardHeight := float64(itemCount)*lineHeight + 15*scale
 
-	dc.SetColor(color.RGBA{248, 249, 250, 255})
+	dc.SetColor(color.RGBA{248, 250, 252, 255})
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, feeCardHeight, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.RGBA{51, 51, 51, 255})
@@ -396,7 +392,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	currentY += feeCardHeight + 10*scale
 	totalLabelFontSize := int(22 * scale) // 15 -> 22
 	totalValueFontSize := int(30 * scale) // 20 -> 30
-	dc.SetColor(color.RGBA{220, 53, 69, 255})
+	dc.SetColor(color.RGBA{29, 78, 216, 255})
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, 42*scale, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.White)
@@ -592,7 +588,7 @@ func (ig *ImageGenerator) calculateTotals(records []models.BillingRecord) (total
 }
 
 // GenerateSimpleCard 生成简单卡片（单个用户）- 简约风格
-func (ig *ImageGenerator) GenerateSimpleCard(record models.BillingRecord) (string, error) {
+func (ig *ImageGenerator) generateLegacySimpleCard(record models.BillingRecord) (string, error) {
 	// 动态高度
 	extraCount := len(record.ExtraFees)
 	totalHeight := 780 + extraCount*28
@@ -710,6 +706,26 @@ func (ig *ImageGenerator) GenerateSimpleCard(record models.BillingRecord) (strin
 }
 
 // GetImage 读取图片文件
+// GenerateSimpleCard uses the same renderer as batch reports so both paths share one visual language.
+func (ig *ImageGenerator) GenerateSimpleCard(record models.BillingRecord) (string, error) {
+	extraCount := len(record.ExtraFees)
+	cardHeight := 720 + extraCount*28
+	dc := gg.NewContext(480, cardHeight+32)
+
+	dc.SetColor(color.RGBA{244, 246, 248, 255})
+	dc.Clear()
+	ig.drawDetailedCard(dc, record, 16, 16, 448, cardHeight)
+
+	basename, filename, err := ig.fileStore.NewReportFile()
+	if err != nil {
+		return "", err
+	}
+	if err := dc.SavePNG(filename); err != nil {
+		return "", err
+	}
+	return basename, nil
+}
+
 func (ig *ImageGenerator) GetImage(filename string) (image.Image, error) {
 	file, err := os.Open(filename)
 	if err != nil {
