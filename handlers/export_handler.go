@@ -9,6 +9,7 @@ import (
 	"ginMeterBox/dto"
 	"ginMeterBox/models"
 	"ginMeterBox/pkg/response"
+	"ginMeterBox/repository"
 	"ginMeterBox/services"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,10 @@ func (h *BillingHandler) BatchImport(c *gin.Context) {
 		records[i] = request.ToRecord()
 	}
 	if err := h.service.BatchImport(records); err != nil {
+		if err == repository.ErrBillingPeriodExists {
+			response.BadRequest(c, "导入数据包含已存在或重复的住户月份账单")
+			return
+		}
 		response.ServerError(c, "批量导入失败")
 		return
 	}

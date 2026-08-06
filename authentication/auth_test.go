@@ -60,3 +60,35 @@ func TestLoginAndProtectedRoute(t *testing.T) {
 		t.Fatalf("认证后请求状态码 = %d，期望 %d", authenticated.Code, http.StatusNoContent)
 	}
 }
+
+func TestLoginRateLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	hash, err := bcrypt.GenerateFromPassword([]byte("test-password"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(string(hash), false)
+	router := gin.New()
+	router.POST("/login", service.Login)
+
+	for i := 0; i < maxFailedLogins; i++ {
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBufferString(`{"password":"wrong"}`))
+		request.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusUnauthorized {
+			t.Fatalf("failed login %d status = %d, want %d", i+1, recorder.Code, http.StatusUnauthorized)
+		}
+	}
+
+	locked := httptest.NewRecorder()
+	lockedRequest := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBufferString(`{"password":"test-password"}`))
+	lockedRequest.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(locked, lockedRequest)
+	if locked.Code != http.StatusTooManyRequests {
+		t.Fatalf("locked login status = %d, want %d", locked.Code, http.StatusTooManyRequests)
+	}
+	if locked.Header().Get("Retry-After") == "" {
+		t.Fatal("rate-limited response missing Retry-After header")
+	}
+}

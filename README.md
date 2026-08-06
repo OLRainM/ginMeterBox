@@ -15,7 +15,7 @@
 ## 技术栈
 
 - Go 1.24 + Gin
-- JSON 文件存储（Repository 接口化，可扩展为数据库）
+- SQLite 运行时存储（JSON 仅用于首次迁移与人工回滚）
 - 图片生成：fogleman/gg
 - Excel 导出：xuri/excelize
 
@@ -128,8 +128,8 @@ go-ele/
 | GET | /billing/export | 由服务端生成 JSON，并返回受限下载 URL |
 | GET | /billing/export/download?file=generated_... | 下载服务端生成的 JSON/Excel |
 | POST | /billing/export-excel | 由服务端生成 Excel，并返回受限下载 URL |
-| GET | /billing/report/generate | 生成报表图片 |
-| GET | /billing/card/:id | 生成单卡片 |
+| POST | /billing/report/generate | 生成报表图片 |
+| POST | /billing/card/:id | 生成单卡片 |
 | GET | /billing/download?file=xxx | 下载图片 |
 | POST | /billing/smart-water-match | 智能水表匹配 |
 

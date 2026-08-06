@@ -11,7 +11,12 @@ import (
 	"ginMeterBox/models"
 )
 
-var ErrRecordNotFound = errors.New("record not found")
+var (
+	ErrRecordNotFound      = errors.New("record not found")
+	ErrBillingPeriodExists = errors.New("billing record already exists for room and month")
+	ErrBillingMonthNotNext = errors.New("billing month must be after the latest record")
+	ErrInvalidUsage        = errors.New("meter reading would produce negative usage")
+)
 
 // BillingJSONRepo JSON文件实现的账单仓储。
 type BillingJSONRepo struct {
@@ -139,6 +144,38 @@ func (r *BillingJSONRepo) GetLatestByRoomNumber(roomNumber string) (*models.Bill
 	return latest, nil
 }
 
+func (r *BillingJSONRepo) GetByRoomAndMonth(roomNumber, month string) (*models.BillingRecord, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for i := range r.records {
+		if r.records[i].RoomNumber == roomNumber && r.records[i].BillingMonth == month {
+			record := cloneRecords(r.records[i : i+1])[0]
+			return &record, nil
+		}
+	}
+	return nil, ErrRecordNotFound
+}
+
+func ensureNoDuplicateBillingPeriods(records []models.BillingRecord, ignoreID int) error {
+	seen := make(map[string]int, len(records))
+	for _, record := range records {
+		if record.ID == ignoreID {
+			continue
+		}
+		key := record.RoomNumber + "\x00" + record.BillingMonth
+		if _, exists := seen[key]; exists {
+			return ErrBillingPeriodExists
+		}
+		seen[key] = record.ID
+	}
+	return nil
+}
+
+func hasNonNegativeUsage(record models.BillingRecord) bool {
+	return record.CurrentWater+record.WaterAdjustment >= record.PreviousWater &&
+		record.CurrentElectric+record.ElectricAdjustment >= record.PreviousElectric
+}
+
 func (r *BillingJSONRepo) Create(record *models.BillingRecord) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -151,12 +188,43 @@ func (r *BillingJSONRepo) Create(record *models.BillingRecord) error {
 	created.UpdatedAt = now
 	created.CalculateCosts()
 	candidate = append(candidate, created)
+	if err := ensureNoDuplicateBillingPeriods(candidate, 0); err != nil {
+		return err
+	}
 	if err := r.save(candidate); err != nil {
 		return err
 	}
 	r.records = candidate
 	r.nextID++
 	*record = created
+	return nil
+}
+
+func (r *BillingJSONRepo) BatchCreate(records []models.BillingRecord) error {
+	if len(records) == 0 {
+		return nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	candidate := cloneRecords(r.records)
+	nextID := r.nextID
+	now := time.Now()
+	for i := range records {
+		records[i].ID = nextID
+		nextID++
+		records[i].CreatedAt, records[i].UpdatedAt = now, now
+		records[i].CalculateCosts()
+		candidate = append(candidate, records[i])
+	}
+	if err := ensureNoDuplicateBillingPeriods(candidate, 0); err != nil {
+		return err
+	}
+	if err := r.save(candidate); err != nil {
+		return err
+	}
+	r.records = candidate
+	r.nextID = nextID
 	return nil
 }
 
@@ -173,6 +241,9 @@ func (r *BillingJSONRepo) Update(id int, record *models.BillingRecord) error {
 			updated.UpdatedAt = time.Now()
 			updated.CalculateCosts()
 			candidate[i] = updated
+			if err := ensureNoDuplicateBillingPeriods(candidate, 0); err != nil {
+				return err
+			}
 			if err := r.save(candidate); err != nil {
 				return err
 			}
@@ -255,6 +326,9 @@ func (r *BillingJSONRepo) BatchUpdateAdjustments(ids []int, waterAdjustment, ele
 				candidate[i].ElectricAdjustment = *electricAdjustment
 			}
 			candidate[i].UpdatedAt = time.Now()
+			if !hasNonNegativeUsage(candidate[i]) {
+				return 0, ErrInvalidUsage
+			}
 			candidate[i].CalculateCosts()
 		}
 	}
@@ -266,6 +340,44 @@ func (r *BillingJSONRepo) BatchUpdateAdjustments(ids []int, waterAdjustment, ele
 	}
 	r.records = candidate
 	return len(ids), nil
+}
+
+func (r *BillingJSONRepo) BatchUpdateWaterReadings(updates []WaterReadingUpdate) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	readingByID := make(map[int]float64, len(updates))
+	for _, update := range updates {
+		if _, exists := readingByID[update.ID]; exists {
+			return ErrRecordNotFound
+		}
+		readingByID[update.ID] = update.CurrentWater
+	}
+	candidate := cloneRecords(r.records)
+	for i := range candidate {
+		reading, ok := readingByID[candidate[i].ID]
+		if !ok {
+			continue
+		}
+		delete(readingByID, candidate[i].ID)
+		candidate[i].CurrentWater = reading
+		if !hasNonNegativeUsage(candidate[i]) {
+			return ErrInvalidUsage
+		}
+		candidate[i].UpdatedAt = time.Now()
+		candidate[i].CalculateCosts()
+	}
+	if len(readingByID) != 0 {
+		return ErrRecordNotFound
+	}
+	if err := r.save(candidate); err != nil {
+		return err
+	}
+	r.records = candidate
+	return nil
 }
 
 func (r *BillingJSONRepo) BatchSetExtraFees(ids []int, extraFees []models.ExtraFee, mode string) (int, error) {
@@ -316,6 +428,9 @@ func (r *BillingJSONRepo) BatchImport(records []models.BillingRecord) error {
 		records[i].UpdatedAt = now
 		records[i].CalculateCosts()
 		candidate = append(candidate, records[i])
+	}
+	if err := ensureNoDuplicateBillingPeriods(candidate, 0); err != nil {
+		return err
 	}
 	if err := r.save(candidate); err != nil {
 		return err

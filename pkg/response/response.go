@@ -45,6 +45,11 @@ func Unauthorized(c *gin.Context, err string) {
 	c.JSON(http.StatusUnauthorized, R{Success: false, Error: err})
 }
 
+// TooManyRequests is used for rate-limited endpoints such as login.
+func TooManyRequests(c *gin.Context, err string) {
+	c.JSON(http.StatusTooManyRequests, R{Success: false, Error: err})
+}
+
 // NotFound 资源不存在
 func NotFound(c *gin.Context, err string) {
 	c.JSON(http.StatusNotFound, R{Success: false, Error: err})

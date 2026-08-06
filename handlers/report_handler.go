@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
-	"strings"
 
+	"ginMeterBox/dto"
 	"ginMeterBox/models"
 	"ginMeterBox/pkg/response"
 	"ginMeterBox/services"
@@ -16,28 +16,22 @@ import (
 
 // GenerateReport 生成账单报表图片
 func (h *BillingHandler) GenerateReport(c *gin.Context) {
-	idsParam := c.Query("ids")
-	month := c.Query("month")
-	sortBy := c.Query("sortBy")
-	order := c.Query("order")
+	var request dto.GenerateReportRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		response.BadRequest(c, "请求格式无效")
+		return
+	}
+	if err := request.Validate(); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
 
 	var records []models.BillingRecord
 
-	if idsParam != "" {
-		idStrs := strings.Split(idsParam, ",")
-		ids := make([]int, 0, len(idStrs))
-		for _, idStr := range idStrs {
-			id, err := strconv.Atoi(strings.TrimSpace(idStr))
-			if err == nil {
-				ids = append(ids, id)
-			}
-		}
-		records = h.service.GetByIDs(ids)
-	} else if month != "" {
-		records = h.service.GetByMonth(month)
+	if len(request.IDs) > 0 {
+		records = h.service.GetByIDs(request.IDs)
 	} else {
-		response.BadRequest(c, "请提供 ids 或 month 参数")
-		return
+		records = h.service.GetByMonth(request.Month)
 	}
 
 	if len(records) == 0 {
@@ -45,16 +39,16 @@ func (h *BillingHandler) GenerateReport(c *gin.Context) {
 		return
 	}
 
-	if sortBy == "room" {
+	if request.SortBy == "room" {
 		sort.Slice(records, func(i, j int) bool {
-			if order == "desc" {
+			if request.Order == "desc" {
 				return records[i].RoomNumber > records[j].RoomNumber
 			}
 			return records[i].RoomNumber < records[j].RoomNumber
 		})
 	}
 
-	filename, err := h.imgGenerator.GenerateBillingReport(records, month)
+	filename, err := h.imgGenerator.GenerateBillingReport(records, request.Month)
 	if err != nil {
 		response.ServerError(c, "生成图片失败")
 		return

@@ -161,6 +161,28 @@ func (r *BillingSQLiteRepo) GetLatestByRoomNumber(roomNumber string) (*models.Bi
 	return &record, nil
 }
 
+func (r *BillingSQLiteRepo) GetByRoomAndMonth(roomNumber, month string) (*models.BillingRecord, error) {
+	record, err := scanBillingRecord(r.db.QueryRow(`SELECT `+billingColumns+` FROM billing_records WHERE room_number = ? AND billing_month = ?`, roomNumber, month))
+	if err == sql.ErrNoRows {
+		return nil, ErrRecordNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := r.loadExtraFees(&record); err != nil {
+		return nil, err
+	}
+	return &record, nil
+}
+
+func billingPeriodExists(tx *sql.Tx, roomNumber, month string, excludeID int) (bool, error) {
+	var count int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM billing_records WHERE room_number = ? AND billing_month = ? AND id != ?`, roomNumber, month, excludeID).Scan(&count); err != nil {
+		return false, err
+	}
+	return count != 0, nil
+}
+
 func insertBillingRecord(tx *sql.Tx, record *models.BillingRecord, preserveID bool) (int, error) {
 	columns := `room_number, current_water, previous_water, water_adjustment, water_usage,
         current_electric, previous_electric, electric_adjustment, electric_usage, management_fee,
@@ -211,6 +233,13 @@ func (r *BillingSQLiteRepo) Create(record *models.BillingRecord) error {
 		return err
 	}
 	defer tx.Rollback()
+	exists, err := billingPeriodExists(tx, record.RoomNumber, record.BillingMonth, 0)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return ErrBillingPeriodExists
+	}
 	id, err := insertBillingRecord(tx, record, false)
 	if err != nil {
 		return err
@@ -225,6 +254,38 @@ func (r *BillingSQLiteRepo) Create(record *models.BillingRecord) error {
 	return nil
 }
 
+func (r *BillingSQLiteRepo) BatchCreate(records []models.BillingRecord) error {
+	if len(records) == 0 {
+		return nil
+	}
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	now := time.Now()
+	for i := range records {
+		records[i].CreatedAt, records[i].UpdatedAt = now, now
+		records[i].CalculateCosts()
+		exists, err := billingPeriodExists(tx, records[i].RoomNumber, records[i].BillingMonth, 0)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return ErrBillingPeriodExists
+		}
+		id, err := insertBillingRecord(tx, &records[i], false)
+		if err != nil {
+			return err
+		}
+		if err := replaceExtraFees(tx, id, records[i].ExtraFees); err != nil {
+			return err
+		}
+		records[i].ID = id
+	}
+	return tx.Commit()
+}
+
 func (r *BillingSQLiteRepo) Update(id int, record *models.BillingRecord) error {
 	existing, err := r.GetByID(id)
 	if err != nil {
@@ -237,6 +298,13 @@ func (r *BillingSQLiteRepo) Update(id int, record *models.BillingRecord) error {
 		return err
 	}
 	defer tx.Rollback()
+	exists, err := billingPeriodExists(tx, record.RoomNumber, record.BillingMonth, id)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return ErrBillingPeriodExists
+	}
 	result, err := tx.Exec(`UPDATE billing_records SET room_number=?, current_water=?, previous_water=?, water_adjustment=?, water_usage=?, current_electric=?, previous_electric=?, electric_adjustment=?, electric_usage=?, management_fee=?, water_price=?, electric_price=?, total_water_cost=?, total_electric_cost=?, total_cost=?, billing_month=?, updated_at=? WHERE id=?`,
 		record.RoomNumber, record.CurrentWater, record.PreviousWater, record.WaterAdjustment, record.WaterUsage,
 		record.CurrentElectric, record.PreviousElectric, record.ElectricAdjustment, record.ElectricUsage,
@@ -328,6 +396,9 @@ func (r *BillingSQLiteRepo) BatchUpdateAdjustments(ids []int, waterAdjustment, e
 		if electricAdjustment != nil {
 			record.ElectricAdjustment = *electricAdjustment
 		}
+		if !hasNonNegativeUsage(record) {
+			return 0, ErrInvalidUsage
+		}
 		record.UpdatedAt = time.Now()
 		record.CalculateCosts()
 		if _, err := tx.Exec(`UPDATE billing_records SET water_adjustment=?, electric_adjustment=?, water_usage=?, electric_usage=?, total_water_cost=?, total_electric_cost=?, total_cost=?, updated_at=? WHERE id=?`, record.WaterAdjustment, record.ElectricAdjustment, record.WaterUsage, record.ElectricUsage, record.TotalWaterCost, record.TotalElectricCost, record.TotalCost, record.UpdatedAt.Format(time.RFC3339Nano), record.ID); err != nil {
@@ -335,6 +406,44 @@ func (r *BillingSQLiteRepo) BatchUpdateAdjustments(ids []int, waterAdjustment, e
 		}
 	}
 	return len(records), tx.Commit()
+}
+
+func (r *BillingSQLiteRepo) BatchUpdateWaterReadings(updates []WaterReadingUpdate) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	ids := make([]int, len(updates))
+	readingByID := make(map[int]float64, len(updates))
+	for i, update := range updates {
+		if _, exists := readingByID[update.ID]; exists {
+			return ErrRecordNotFound
+		}
+		ids[i] = update.ID
+		readingByID[update.ID] = update.CurrentWater
+	}
+	records := r.GetByIDs(ids)
+	if len(records) != len(ids) {
+		return ErrRecordNotFound
+	}
+	for i := range records {
+		records[i].CurrentWater = readingByID[records[i].ID]
+		if !hasNonNegativeUsage(records[i]) {
+			return ErrInvalidUsage
+		}
+		records[i].UpdatedAt = time.Now()
+		records[i].CalculateCosts()
+	}
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, record := range records {
+		if _, err := tx.Exec(`UPDATE billing_records SET current_water=?, water_usage=?, total_water_cost=?, total_cost=?, updated_at=? WHERE id=?`, record.CurrentWater, record.WaterUsage, record.TotalWaterCost, record.TotalCost, record.UpdatedAt.Format(time.RFC3339Nano), record.ID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (r *BillingSQLiteRepo) BatchSetExtraFees(ids []int, extraFees []models.ExtraFee, mode string) (int, error) {
@@ -383,6 +492,13 @@ func (r *BillingSQLiteRepo) BatchImport(records []models.BillingRecord) error {
 		records[i].ID = 0
 		records[i].CreatedAt, records[i].UpdatedAt = now, now
 		records[i].CalculateCosts()
+		exists, err := billingPeriodExists(tx, records[i].RoomNumber, records[i].BillingMonth, 0)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return ErrBillingPeriodExists
+		}
 		id, err := insertBillingRecord(tx, &records[i], false)
 		if err != nil {
 			return err

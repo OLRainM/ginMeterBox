@@ -336,7 +336,7 @@ export async function fetchTotalMeter(month) {
  * @returns {Promise<Object|null>} 报表结果
  */
 export async function fetchGeneratedReport(params) {
-    return request('/billing/report/generate', { params }, '生成报表失败');
+    return request('/billing/report/generate', jsonOptions('POST', params), '生成报表失败');
 }
 
 /**
@@ -345,5 +345,5 @@ export async function fetchGeneratedReport(params) {
  * @returns {Promise<Object|null>} 卡片结果
  */
 export async function fetchGeneratedCard(id) {
-    return request(`/billing/card/${id}`, {}, '生成卡片失败');
+    return request(`/billing/card/${id}`, { method: 'POST' }, '生成卡片失败');
 }

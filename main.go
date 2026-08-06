@@ -126,9 +126,9 @@ func main() {
 			billing.POST("/calculate", billingHandler.Calculate) // 计算费用
 
 			// 新功能：图片生成
-			billing.GET("/report/generate", billingHandler.GenerateReport) // 生成报表图片
-			billing.GET("/card/:id", billingHandler.GenerateCard)          // 生成单个卡片
-			billing.GET("/download", billingHandler.DownloadImage)         // 下载图片
+			billing.POST("/report/generate", billingHandler.GenerateReport) // 生成报表图片
+			billing.POST("/card/:id", billingHandler.GenerateCard)          // 生成单个卡片
+			billing.GET("/download", billingHandler.DownloadImage)          // 下载图片
 
 			// 新功能：自动延续
 			billing.POST("/continue", billingHandler.ContinueFromPrevious)            // 从上月数据创建

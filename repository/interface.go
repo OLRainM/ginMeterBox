@@ -9,14 +9,23 @@ type BillingRepo interface {
 	GetByMonth(month string) []models.BillingRecord
 	GetByIDs(ids []int) []models.BillingRecord
 	GetLatestByRoomNumber(roomNumber string) (*models.BillingRecord, error)
+	GetByRoomAndMonth(roomNumber, month string) (*models.BillingRecord, error)
 	Create(record *models.BillingRecord) error
+	BatchCreate(records []models.BillingRecord) error
 	Update(id int, record *models.BillingRecord) error
 	Delete(id int) error
 	BatchDelete(ids []int) (int, error)
 	BatchUpdateAdjustments(ids []int, waterAdjustment, electricAdjustment *float64) (int, error)
+	BatchUpdateWaterReadings(updates []WaterReadingUpdate) error
 	BatchSetExtraFees(ids []int, extraFees []models.ExtraFee, mode string) (int, error)
 	BatchImport(records []models.BillingRecord) error
 	ExportToJSON(filepath string) error
+}
+
+// WaterReadingUpdate is an atomic change to a billing record's current water reading.
+type WaterReadingUpdate struct {
+	ID           int
+	CurrentWater float64
 }
 
 // TotalMeterRepo 总表数据访问接口

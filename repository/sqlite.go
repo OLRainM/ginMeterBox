@@ -78,5 +78,25 @@ func OpenSQLite(databaseFile string) (*sql.DB, error) {
 		db.Close()
 		return nil, fmt.Errorf("创建 sqlite 表结构失败: %w", err)
 	}
+	if err := ensureBillingRecordUniqueness(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return db, nil
+}
+
+func ensureBillingRecordUniqueness(db *sql.DB) error {
+	var roomNumber, month string
+	var count int
+	err := db.QueryRow(`SELECT room_number, billing_month, COUNT(*) FROM billing_records GROUP BY room_number, billing_month HAVING COUNT(*) > 1 LIMIT 1`).Scan(&roomNumber, &month, &count)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("检查重复账单失败: %w", err)
+	}
+	if err == nil {
+		return fmt.Errorf("发现重复账单：房号 %q 在 %s 有 %d 条记录；请先合并后再启动服务", roomNumber, month, count)
+	}
+	if _, err := db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_billing_records_room_month ON billing_records(room_number, billing_month)`); err != nil {
+		return fmt.Errorf("创建账单唯一索引失败: %w", err)
+	}
+	return nil
 }

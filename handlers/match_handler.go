@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"fmt"
-	"strings"
 
 	"ginMeterBox/dto"
 	"ginMeterBox/models"
 	"ginMeterBox/pkg/response"
+	"ginMeterBox/repository"
 
 	"github.com/gin-gonic/gin"
 )
@@ -46,40 +46,21 @@ func (h *BillingHandler) SmartWaterMatch(c *gin.Context) {
 		return
 	}
 
-	successCount := 0
-	var matchResults []gin.H
-	var updateErrors []string
-	for _, match := range matches {
-		record := match.Record
-		record.CurrentWater = match.WaterReading
-		record.CalculateCosts()
-		if err := h.service.Update(record.ID, record); err == nil {
-			successCount++
-			matchResults = append(matchResults, gin.H{
-				"id": record.ID, "roomNumber": record.RoomNumber,
-				"waterReading": match.WaterReading, "waterUsage": record.WaterUsage,
-				"previousWater": record.PreviousWater,
-			})
-		} else {
-			updateErrors = append(updateErrors, fmt.Sprintf("房号%s更新失败", record.RoomNumber))
-		}
+	updates := make([]repository.WaterReadingUpdate, len(matches))
+	matchResults := make([]gin.H, 0, len(matches))
+	for i, match := range matches {
+		updates[i] = repository.WaterReadingUpdate{ID: match.Record.ID, CurrentWater: match.WaterReading}
+		matchResults = append(matchResults, gin.H{
+			"id": match.Record.ID, "roomNumber": match.Record.RoomNumber,
+			"waterReading": match.WaterReading, "waterUsage": match.WaterUsage,
+			"previousWater": match.Record.PreviousWater,
+		})
 	}
-
-	if successCount == 0 {
-		errorMsg := "智能匹配失败，没有记录被更新"
-		if len(updateErrors) > 0 {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, strings.Join(updateErrors, "; "))
-		}
-		response.ServerError(c, errorMsg)
+	if err := h.service.BatchUpdateWaterReadings(updates); err != nil {
+		response.ServerError(c, "智能匹配失败，未更新任何记录")
 		return
 	}
-
-	result := gin.H{"message": fmt.Sprintf("成功匹配并更新 %d 条记录", successCount), "count": successCount, "matches": matchResults}
-	if len(updateErrors) > 0 {
-		result["warnings"] = updateErrors
-		result["message"] = fmt.Sprintf("成功匹配并更新 %d 条记录，%d 条失败", successCount, len(updateErrors))
-	}
-	response.OKData(c, result)
+	response.OKData(c, gin.H{"message": fmt.Sprintf("成功匹配并更新 %d 条记录", len(matches)), "count": len(matches), "matches": matchResults})
 }
 
 // smartMatchWaterReadings 智能匹配水表读数（最小总用水量原则，且所有用水量必须非负）

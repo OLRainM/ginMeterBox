@@ -108,6 +108,10 @@ func (h *BillingHandler) Create(c *gin.Context) {
 	}
 	record := req.ToRecord()
 	if err := h.service.Create(&record); err != nil {
+		if err == repository.ErrBillingPeriodExists {
+			response.BadRequest(c, "该住户在该月份已有账单")
+			return
+		}
 		response.ServerError(c, "保存记录失败")
 		return
 	}
@@ -134,6 +138,10 @@ func (h *BillingHandler) Update(c *gin.Context) {
 	if err := h.service.Update(id, &record); err != nil {
 		if err == repository.ErrRecordNotFound {
 			response.NotFound(c, "记录不存在")
+			return
+		}
+		if err == repository.ErrBillingPeriodExists {
+			response.BadRequest(c, "该住户在该月份已有账单")
 			return
 		}
 		response.ServerError(c, "保存记录失败")
@@ -163,8 +171,8 @@ func (h *BillingHandler) Delete(c *gin.Context) {
 // GetByMonth 根据月份获取记录。
 func (h *BillingHandler) GetByMonth(c *gin.Context) {
 	month := c.Query("month")
-	if month == "" {
-		response.BadRequest(c, "月份参数不能为空")
+	if err := dto.ValidateMonth(month); err != nil {
+		response.BadRequest(c, err.Error())
 		return
 	}
 	response.OK(c, h.service.GetByMonth(month))
@@ -199,6 +207,14 @@ func (h *BillingHandler) ContinueFromPrevious(c *gin.Context) {
 	}
 	record, err := h.service.ContinueFromPrevious(req.RoomNumber, req.NewMonth)
 	if err != nil {
+		if err == repository.ErrBillingPeriodExists {
+			response.BadRequest(c, "该住户在目标月份已有账单")
+			return
+		}
+		if err == repository.ErrBillingMonthNotNext {
+			response.BadRequest(c, "新月份必须晚于该住户的最新账单月份")
+			return
+		}
 		if err == repository.ErrRecordNotFound {
 			response.NotFound(c, "未找到该住户的历史记录")
 			return
@@ -221,20 +237,23 @@ func (h *BillingHandler) BatchContinueFromPrevious(c *gin.Context) {
 		return
 	}
 
-	successCount := 0
-	failedRooms := []string{}
-	for _, roomNumber := range req.RoomNumbers {
-		if _, err := h.service.ContinueFromPrevious(roomNumber, req.NewMonth); err != nil {
-			failedRooms = append(failedRooms, roomNumber)
-			continue
+	if err := h.service.BatchContinueFromPrevious(req.RoomNumbers, req.NewMonth); err != nil {
+		if err == repository.ErrBillingPeriodExists {
+			response.BadRequest(c, "存在住户在目标月份已有账单，未创建任何记录")
+			return
 		}
-		successCount++
-	}
-	if successCount == 0 {
-		response.ServerError(c, "批量自动延续失败")
+		if err == repository.ErrBillingMonthNotNext {
+			response.BadRequest(c, "新月份必须晚于每个住户的最新账单月份，未创建任何记录")
+			return
+		}
+		if err == repository.ErrRecordNotFound {
+			response.NotFound(c, "存在没有历史账单的住户，未创建任何记录")
+			return
+		}
+		response.ServerError(c, "批量自动延续失败，未创建任何记录")
 		return
 	}
-	response.OK(c, gin.H{"count": successCount, "failed": failedRooms})
+	response.OK(c, gin.H{"count": len(req.RoomNumbers), "failed": []string{}})
 }
 
 // GetLatestByRoom 获取某住户的最新记录。

@@ -48,9 +48,17 @@ func (s *BillingService) Delete(id int) error {
 
 // ContinueFromPrevious 从上月记录创建新记录。
 func (s *BillingService) ContinueFromPrevious(roomNumber, newMonth string) (*models.BillingRecord, error) {
+	if existing, err := s.repo.GetByRoomAndMonth(roomNumber, newMonth); err == nil && existing != nil {
+		return nil, repository.ErrBillingPeriodExists
+	} else if err != repository.ErrRecordNotFound {
+		return nil, err
+	}
 	previous, err := s.repo.GetLatestByRoomNumber(roomNumber)
 	if err != nil {
 		return nil, err
+	}
+	if newMonth <= previous.BillingMonth {
+		return nil, repository.ErrBillingMonthNotNext
 	}
 
 	newRecord := &models.BillingRecord{
@@ -70,12 +78,47 @@ func (s *BillingService) ContinueFromPrevious(roomNumber, newMonth string) (*mod
 	return newRecord, nil
 }
 
+// BatchContinueFromPrevious creates all requested continuation records in one repository transaction.
+func (s *BillingService) BatchContinueFromPrevious(roomNumbers []string, newMonth string) error {
+	records := make([]models.BillingRecord, 0, len(roomNumbers))
+	for _, roomNumber := range roomNumbers {
+		if existing, err := s.repo.GetByRoomAndMonth(roomNumber, newMonth); err == nil && existing != nil {
+			return repository.ErrBillingPeriodExists
+		} else if err != repository.ErrRecordNotFound {
+			return err
+		}
+		previous, err := s.repo.GetLatestByRoomNumber(roomNumber)
+		if err != nil {
+			return err
+		}
+		if newMonth <= previous.BillingMonth {
+			return repository.ErrBillingMonthNotNext
+		}
+		records = append(records, models.BillingRecord{
+			RoomNumber:       roomNumber,
+			BillingMonth:     newMonth,
+			CurrentWater:     previous.CurrentWater,
+			PreviousWater:    previous.CurrentWater,
+			CurrentElectric:  previous.CurrentElectric,
+			PreviousElectric: previous.CurrentElectric,
+			ManagementFee:    previous.ManagementFee,
+			WaterPrice:       previous.WaterPrice,
+			ElectricPrice:    previous.ElectricPrice,
+		})
+	}
+	return s.repo.BatchCreate(records)
+}
+
 func (s *BillingService) BatchDelete(ids []int) (int, error) {
 	return s.repo.BatchDelete(ids)
 }
 
 func (s *BillingService) BatchUpdateAdjustments(ids []int, waterAdjustment, electricAdjustment *float64) (int, error) {
 	return s.repo.BatchUpdateAdjustments(ids, waterAdjustment, electricAdjustment)
+}
+
+func (s *BillingService) BatchUpdateWaterReadings(updates []repository.WaterReadingUpdate) error {
+	return s.repo.BatchUpdateWaterReadings(updates)
 }
 
 func (s *BillingService) BatchSetExtraFees(ids []int, extraFees []models.ExtraFee, mode string) (int, error) {

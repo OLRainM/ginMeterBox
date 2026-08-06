@@ -155,6 +155,36 @@ type SmartWaterMatchRequest struct {
 	WaterReadings []float64 `json:"waterReadings"`
 }
 
+type GenerateReportRequest struct {
+	IDs    []int  `json:"ids"`
+	Month  string `json:"month"`
+	SortBy string `json:"sortBy"`
+	Order  string `json:"order"`
+}
+
+func (r GenerateReportRequest) Validate() error {
+	if len(r.IDs) == 0 && r.Month == "" {
+		return fmt.Errorf("请提供 ids 或 month 参数")
+	}
+	if len(r.IDs) > 0 {
+		if err := ValidateIDs(r.IDs); err != nil {
+			return err
+		}
+	}
+	if r.Month != "" {
+		if err := ValidateMonth(r.Month); err != nil {
+			return err
+		}
+	}
+	if r.SortBy != "" && r.SortBy != "room" {
+		return fmt.Errorf("排序字段无效")
+	}
+	if r.Order != "" && r.Order != "asc" && r.Order != "desc" {
+		return fmt.Errorf("排序方向无效")
+	}
+	return nil
+}
+
 func (r SmartWaterMatchRequest) Validate() error {
 	if err := ValidateIDs(r.IDs); err != nil {
 		return err

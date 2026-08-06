@@ -31,8 +31,12 @@ Thumbs.db
 
 # Data files
 *.db
+*.db-*
 data/*.json
 !data/.gitkeep
+
+# Local migration backups may contain billing data.
+/backups/
 
 # Generated reports
 reports/*.png
