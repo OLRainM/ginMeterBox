@@ -3,6 +3,7 @@
     "port": ":8080"
   },
   "data": {
+    "databaseFile": "data/billing.db",
     "billingFile": "data/billing_records.json",
     "totalMeterFile": "data/total_meter_records.json"
   },
@@ -15,5 +16,10 @@
   "font": {
     "bold": "C:\\Windows\\Fonts\\msyhbd.ttc",
     "regular": "C:\\Windows\\Fonts\\msyh.ttc"
+  },
+  "security": {
+    "adminPasswordHash": "",
+    "sessionCookieSecure": false,
+    "allowedOrigins": []
   }
 }

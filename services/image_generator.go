@@ -1,4 +1,4 @@
-﻿package services
+package services
 
 import (
 	"fmt"
@@ -15,16 +15,39 @@ import (
 
 // ImageGenerator 图片生成器
 type ImageGenerator struct {
-	width  int
-	height int
+	width       int
+	height      int
+	fileStore   *GeneratedFileStore
+	boldFont    string
+	regularFont string
 }
 
-// NewImageGenerator 创建图片生成器
-func NewImageGenerator() *ImageGenerator {
-	return &ImageGenerator{
-		width:  1200,
-		height: 800,
+// ImageGeneratorOptions 提供报表存储与字体依赖，避免业务代码硬编码部署路径。
+type ImageGeneratorOptions struct {
+	FileStore   *GeneratedFileStore
+	BoldFont    string
+	RegularFont string
+}
+
+// NewImageGenerator 创建图片生成器。
+func NewImageGenerator(options ...ImageGeneratorOptions) *ImageGenerator {
+	config := ImageGeneratorOptions{
+		FileStore:   NewGeneratedFileStore("exports", "reports"),
+		BoldFont:    "C:\\Windows\\Fonts\\msyhbd.ttc",
+		RegularFont: "C:\\Windows\\Fonts\\msyh.ttc",
 	}
+	if len(options) > 0 {
+		if options[0].FileStore != nil {
+			config.FileStore = options[0].FileStore
+		}
+		if options[0].BoldFont != "" {
+			config.BoldFont = options[0].BoldFont
+		}
+		if options[0].RegularFont != "" {
+			config.RegularFont = options[0].RegularFont
+		}
+	}
+	return &ImageGenerator{width: 1200, height: 800, fileStore: config.FileStore, boldFont: config.BoldFont, regularFont: config.RegularFont}
 }
 
 // GenerateBillingReport 生成账单报表图片 - 详细卡片风格（自适应布局）
@@ -105,12 +128,12 @@ func (ig *ImageGenerator) GenerateBillingReport(records []models.BillingRecord, 
 		subtitleSize = 28 // 22 -> 28
 	}
 
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(titleSize)); err != nil {
+	if err := dc.LoadFontFace(ig.boldFont, float64(titleSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(titleSize))
 	}
 	dc.DrawStringAnchored("水电费账单批量报表", float64(totalWidth)/2, 40, 0.5, 0.5)
 
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", float64(subtitleSize)); err != nil {
+	if err := dc.LoadFontFace(ig.regularFont, float64(subtitleSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", float64(subtitleSize))
 	}
 	dc.DrawStringAnchored(fmt.Sprintf("账单月份：%s  |  共 %d 条记录  |  布局：%d×%d  |  生成时间：%s",
@@ -144,17 +167,16 @@ func (ig *ImageGenerator) GenerateBillingReport(records []models.BillingRecord, 
 		ig.drawDetailedCard(dc, record, x, y, cardWidth, cardHeight)
 	}
 
-	// 保存图片
-	filename := fmt.Sprintf("reports/billing_batch_%s_%s.png", month, time.Now().Format("20060102150405"))
-	if err := os.MkdirAll("reports", 0755); err != nil {
+	// 文件名由受限文件存储服务生成，调用方只会获得其下载 URL。
+	basename, filename, err := ig.fileStore.NewReportFile()
+	if err != nil {
 		return "", err
 	}
-
 	if err := dc.SavePNG(filename); err != nil {
 		return "", err
 	}
 
-	return filename, nil
+	return basename, nil
 }
 
 // drawDetailedCard 绘制单个详细卡片（自适应尺寸）
@@ -198,12 +220,12 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 
 	// 标题
 	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(titleFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.boldFont, float64(titleFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(titleFontSize))
 	}
 	dc.DrawStringAnchored("水电费账单", fx+fw/2, fy+30*scale, 0.5, 0.5)
 
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", float64(subtitleFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.regularFont, float64(subtitleFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", float64(subtitleFontSize))
 	}
 	sendTime := time.Now().Format("2006年01月")
@@ -214,11 +236,11 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	dc.DrawRoundedRectangle(fx+padding, fy+100*scale, fw-2*padding, 50*scale, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(headerFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.boldFont, float64(headerFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(headerFontSize))
 	}
 	dc.DrawStringAnchored(record.RoomNumber, fx+fw/2, fy+112*scale, 0.5, 0.5)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", float64(smallFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.regularFont, float64(smallFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", float64(smallFontSize))
 	}
 	dc.DrawStringAnchored(fmt.Sprintf("账单月份：%s", record.BillingMonth), fx+fw/2, fy+137*scale, 0.5, 0.5)
@@ -229,7 +251,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, 28*scale, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(sectionTitleFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.boldFont, float64(sectionTitleFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(sectionTitleFontSize))
 	}
 	dc.DrawStringAnchored("【水费详情】", fx+fw/2, currentY+14*scale, 0.5, 0.5)
@@ -241,7 +263,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	dc.Fill()
 
 	dc.SetColor(color.RGBA{51, 51, 51, 255})
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", float64(infoFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.regularFont, float64(infoFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", float64(infoFontSize))
 	}
 
@@ -261,11 +283,11 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	lineHeight := 25.0 * scale
 	for _, info := range waterInfo {
 		dc.DrawString(info.label, fx+35*scale, infoY)
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(infoFontSize)); err != nil {
+		if err := dc.LoadFontFace(ig.boldFont, float64(infoFontSize)); err != nil {
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(infoFontSize))
 		}
 		dc.DrawStringAnchored(info.value, fx+fw-35*scale, infoY, 1.0, 0.5)
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", float64(infoFontSize)); err != nil {
+		if err := dc.LoadFontFace(ig.regularFont, float64(infoFontSize)); err != nil {
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", float64(infoFontSize))
 		}
 		infoY += lineHeight
@@ -277,7 +299,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, 28*scale, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(sectionTitleFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.boldFont, float64(sectionTitleFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(sectionTitleFontSize))
 	}
 	dc.DrawStringAnchored("【电费详情】", fx+fw/2, currentY+14*scale, 0.5, 0.5)
@@ -289,7 +311,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	dc.Fill()
 
 	dc.SetColor(color.RGBA{51, 51, 51, 255})
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", float64(infoFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.regularFont, float64(infoFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", float64(infoFontSize))
 	}
 
@@ -308,11 +330,11 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	infoY = currentY + 20*scale
 	for _, info := range electricInfo {
 		dc.DrawString(info.label, fx+35*scale, infoY)
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(infoFontSize)); err != nil {
+		if err := dc.LoadFontFace(ig.boldFont, float64(infoFontSize)); err != nil {
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(infoFontSize))
 		}
 		dc.DrawStringAnchored(info.value, fx+fw-35*scale, infoY, 1.0, 0.5)
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", float64(infoFontSize)); err != nil {
+		if err := dc.LoadFontFace(ig.regularFont, float64(infoFontSize)); err != nil {
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", float64(infoFontSize))
 		}
 		infoY += lineHeight
@@ -324,7 +346,7 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, 28*scale, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(sectionTitleFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.boldFont, float64(sectionTitleFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(sectionTitleFontSize))
 	}
 	dc.DrawStringAnchored("【其他费用】", fx+fw/2, currentY+14*scale, 0.5, 0.5)
@@ -340,31 +362,31 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, feeCardHeight, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.RGBA{51, 51, 51, 255})
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", float64(infoFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.regularFont, float64(infoFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", float64(infoFontSize))
 	}
 
 	// 管理费
 	itemY := currentY + 20*scale
 	dc.DrawString("管理费", fx+35*scale, itemY)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(infoFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.boldFont, float64(infoFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(infoFontSize))
 	}
 	dc.DrawStringAnchored(fmt.Sprintf("¥%.2f", record.ManagementFee), fx+fw-35*scale, itemY, 1.0, 0.5)
 
 	// 额外费用（如果有）
 	if len(record.ExtraFees) > 0 {
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", float64(infoFontSize)); err != nil {
+		if err := dc.LoadFontFace(ig.regularFont, float64(infoFontSize)); err != nil {
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", float64(infoFontSize))
 		}
 		for _, fee := range record.ExtraFees {
 			itemY += lineHeight
 			dc.DrawString(fee.Name, fx+35*scale, itemY)
-			if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(infoFontSize)); err != nil {
+			if err := dc.LoadFontFace(ig.boldFont, float64(infoFontSize)); err != nil {
 				dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(infoFontSize))
 			}
 			dc.DrawStringAnchored(fmt.Sprintf("¥%.2f", fee.Amount), fx+fw-35*scale, itemY, 1.0, 0.5)
-			if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", float64(infoFontSize)); err != nil {
+			if err := dc.LoadFontFace(ig.regularFont, float64(infoFontSize)); err != nil {
 				dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", float64(infoFontSize))
 			}
 		}
@@ -378,11 +400,11 @@ func (ig *ImageGenerator) drawDetailedCard(dc *gg.Context, record models.Billing
 	dc.DrawRoundedRectangle(fx+padding, currentY, fw-2*padding, 42*scale, sectionCornerRadius)
 	dc.Fill()
 	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(totalLabelFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.boldFont, float64(totalLabelFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(totalLabelFontSize))
 	}
 	dc.DrawString("总费用", fx+35*scale, currentY+26*scale)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", float64(totalValueFontSize)); err != nil {
+	if err := dc.LoadFontFace(ig.boldFont, float64(totalValueFontSize)); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", float64(totalValueFontSize))
 	}
 	dc.DrawStringAnchored(fmt.Sprintf("¥%.2f", record.TotalCost), fx+fw-35*scale, currentY+26*scale, 1.0, 0.5)
@@ -412,7 +434,7 @@ func (ig *ImageGenerator) drawTitle(dc *gg.Context, month string) {
 	dc.SetColor(color.White)
 
 	// 加载字体（使用系统默认字体）
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 48); err != nil {
+	if err := dc.LoadFontFace(ig.regularFont, 48); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 48)
 	}
 
@@ -456,13 +478,13 @@ func (ig *ImageGenerator) drawStatistics(dc *gg.Context, count int, totalCost, t
 		dc.DrawStringAnchored(stat.icon, x+40, startY+35, 0.5, 0.5)
 
 		// 绘制标签
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 18); err != nil {
+		if err := dc.LoadFontFace(ig.regularFont, 18); err != nil {
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 18)
 		}
 		dc.DrawStringAnchored(stat.label, x+cardWidth/2, startY+55, 0.5, 0.5)
 
 		// 绘制数值
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 24); err != nil {
+		if err := dc.LoadFontFace(ig.boldFont, 24); err != nil {
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 24)
 		}
 		dc.DrawStringAnchored(stat.value, x+cardWidth/2, startY+90, 0.5, 0.5)
@@ -482,7 +504,7 @@ func (ig *ImageGenerator) drawRecords(dc *gg.Context, records []models.BillingRe
 	dc.Fill()
 
 	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 18); err != nil {
+	if err := dc.LoadFontFace(ig.boldFont, 18); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 18)
 	}
 
@@ -517,7 +539,7 @@ func (ig *ImageGenerator) drawRecords(dc *gg.Context, records []models.BillingRe
 
 		// 文字颜色
 		dc.SetColor(color.RGBA{51, 51, 51, 255})
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 16); err != nil {
+		if err := dc.LoadFontFace(ig.regularFont, 16); err != nil {
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 16)
 		}
 
@@ -538,7 +560,7 @@ func (ig *ImageGenerator) drawRecords(dc *gg.Context, records []models.BillingRe
 		}
 
 		// 总费用加粗
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 18); err != nil {
+		if err := dc.LoadFontFace(ig.boldFont, 18); err != nil {
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 18)
 		}
 		dc.SetColor(color.RGBA{220, 53, 69, 255})
@@ -551,7 +573,7 @@ func (ig *ImageGenerator) drawRecords(dc *gg.Context, records []models.BillingRe
 // drawFooter 绘制底部信息
 func (ig *ImageGenerator) drawFooter(dc *gg.Context) {
 	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 14); err != nil {
+	if err := dc.LoadFontFace(ig.regularFont, 14); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 14)
 	}
 
@@ -596,23 +618,23 @@ func (ig *ImageGenerator) GenerateSimpleCard(record models.BillingRecord) (strin
 
 	// 标题
 	dc.SetRGB(1, 1, 1)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 28); err != nil {
+	if err := dc.LoadFontFace(ig.boldFont, 28); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 28)
 	}
 	dc.DrawStringAnchored("水电费账单", 240, 42, 0.5, 0.5)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 14); err != nil {
+	if err := dc.LoadFontFace(ig.regularFont, 14); err != nil {
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 14)
 	}
 	dc.DrawStringAnchored(fmt.Sprintf("%s · %s", record.RoomNumber, record.BillingMonth), 240, 70, 0.5, 0.5)
 
 	y := 110.0
 	loadRegular := func(size float64) {
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", size); err != nil {
+		if err := dc.LoadFontFace(ig.regularFont, size); err != nil {
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", size)
 		}
 	}
 	loadBold := func(size float64) {
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", size); err != nil {
+		if err := dc.LoadFontFace(ig.boldFont, size); err != nil {
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", size)
 		}
 	}
@@ -676,15 +698,15 @@ func (ig *ImageGenerator) GenerateSimpleCard(record models.BillingRecord) (strin
 	loadBold(26)
 	dc.DrawStringAnchored(fmt.Sprintf("¥%.2f", record.TotalCost), 432, y+24, 1.0, 0.5)
 
-	// 保存
-	filename := fmt.Sprintf("reports/card_%s_%s.png", record.RoomNumber, time.Now().Format("20060102150405"))
-	if err := os.MkdirAll("reports", 0755); err != nil {
+	// 文件名由受限文件存储服务生成，调用方只会获得其下载 URL。
+	basename, filename, err := ig.fileStore.NewReportFile()
+	if err != nil {
 		return "", err
 	}
 	if err := dc.SavePNG(filename); err != nil {
 		return "", err
 	}
-	return filename, nil
+	return basename, nil
 }
 
 // GetImage 读取图片文件
@@ -730,7 +752,7 @@ func (ig *ImageGenerator) drawSummarySection(dc *gg.Context, totalWidth int,
 
 	// 标题
 	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 32); err != nil { // 24 -> 32
+	if err := dc.LoadFontFace(ig.boldFont, 32); err != nil { // 24 -> 32
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 32)
 	}
 	dc.DrawStringAnchored("选中记录汇总统计", float64(totalWidth)/2, summaryY+25, 0.5, 0.5)
@@ -751,7 +773,7 @@ func (ig *ImageGenerator) drawSummarySection(dc *gg.Context, totalWidth int,
 	}
 
 	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 18); err != nil { // 14 -> 18
+	if err := dc.LoadFontFace(ig.regularFont, 18); err != nil { // 14 -> 18
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 18)
 	}
 
@@ -766,13 +788,13 @@ func (ig *ImageGenerator) drawSummarySection(dc *gg.Context, totalWidth int,
 		dc.DrawStringAnchored(stat.icon, x, statsY-5, 0.5, 0.5)
 
 		// 标签
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyh.ttc", 17); err != nil { // 13 -> 17
+		if err := dc.LoadFontFace(ig.regularFont, 17); err != nil { // 13 -> 17
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arial.ttf", 17)
 		}
 		dc.DrawStringAnchored(stat.label, x, statsY+18, 0.5, 0.5)
 
 		// 数值
-		if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 22); err != nil { // 16 -> 22
+		if err := dc.LoadFontFace(ig.boldFont, 22); err != nil { // 16 -> 22
 			dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 22)
 		}
 		dc.DrawStringAnchored(stat.value, x, statsY+38, 0.5, 0.5)
@@ -787,12 +809,12 @@ func (ig *ImageGenerator) drawSummarySection(dc *gg.Context, totalWidth int,
 	dc.Fill()
 
 	dc.SetColor(color.White)
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 24); err != nil { // 18 -> 24
+	if err := dc.LoadFontFace(ig.boldFont, 24); err != nil { // 18 -> 24
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 24)
 	}
 	dc.DrawStringAnchored("合计总费用", totalX, statsY+5, 0.5, 0.5)
 
-	if err := dc.LoadFontFace("C:\\Windows\\Fonts\\msyhbd.ttc", 36); err != nil { // 28 -> 36
+	if err := dc.LoadFontFace(ig.boldFont, 36); err != nil { // 28 -> 36
 		dc.LoadFontFace("C:\\Windows\\Fonts\\arialbd.ttf", 36)
 	}
 	dc.DrawStringAnchored(fmt.Sprintf("¥%.2f", grandTotal), totalX, statsY+35, 0.5, 0.5)

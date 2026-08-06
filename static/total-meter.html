@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>总表计算器 - 水电费系统</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=3.1.0">
     <style>
         .total-meter-container {
             max-width: 1200px;
@@ -277,7 +277,8 @@
             </div>
             
             <div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0; color: #856404;">📋 建议的补差值</h3>
+                <h3 style="margin: 0 0 10px 0; color: #856404;">📋 每户建议补差值</h3>
+                <p style="margin: 0 0 10px; color: #856404; font-size: 14px;">总表用量减去住户分表合计，再除以当月实际住户数。</p>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                     <div>
                         <strong>💧 水表补差：</strong>
@@ -289,7 +290,7 @@
                     </div>
                 </div>
                 <p style="margin: 10px 0 0 0; color: #856404; font-size: 14px;">
-                    💡 提示：将此补差值平均分配给各用户，或使用批量设置功能统一设置
+                    💡 提示：当前仅展示建议补差，不会自动写入任何住户账单。
                 </p>
             </div>
             
@@ -314,9 +315,6 @@
             </table>
             
             <div style="margin-top: 30px; text-align: center;">
-                <button class="btn btn-success" onclick="applyAdjustments()">
-                    ✅ 应用补差到所有用户
-                </button>
                 <button class="btn btn-secondary" onclick="window.location.href='/'">
                     返回主页
                 </button>
@@ -325,11 +323,31 @@
     </div>
     
     <script type="module">
-        import { showNotification } from './js/utils.js';
-        import { fetchRecords, batchSetAdjustment } from './js/api.js';
+        import { showNotification } from '/static/js/utils.js';
+        import { fetchRecords } from '/static/js/api.js';
         
-        const API_BASE_URL = 'http://localhost:8080/api/v1';
+        const API_BASE_URL = `${window.location.origin}/api/v1`;
+        let isRedirectingToLogin = false;
         let calculatedRecords = [];
+
+        function handleUnauthorized(response) {
+            if (response.status !== 401 || isRedirectingToLogin) {
+                return response.status === 401;
+            }
+
+            isRedirectingToLogin = true;
+            showNotification('会话已过期，请重新登录', 'error');
+            window.location.href = '/';
+            return true;
+        }
+
+        window.addEventListener('auth-required', () => {
+            if (!isRedirectingToLogin) {
+                isRedirectingToLogin = true;
+                showNotification('会话已过期，请重新登录', 'error');
+                window.location.href = '/';
+            }
+        });
         let waterAdjustment = 0;
         let electricAdjustment = 0;
         let selectedMonth = '';
@@ -343,19 +361,42 @@
                 return;
             }
             
-            // 尝试加载该月份的总表记录
+            // 自动加载当前月和上月总表读数，供月度补差直接计算。
+            const [year, monthNumber] = selectedMonth.split('-').map(Number);
+            const previousMonth = monthNumber === 1
+                ? `${year - 1}-12`
+                : `${year}-${String(monthNumber - 1).padStart(2, '0')}`;
             try {
-                const response = await fetch(`${API_BASE_URL}/total-meter/month?month=${selectedMonth}`);
-                const result = await response.json();
-                
-                if (result.success && result.data) {
-                    // 填充总表数据
-                    document.getElementById('currTotalWater').value = result.data.waterReading;
-                    document.getElementById('currTotalElectric').value = result.data.electricReading;
-                    showNotification(`已加载${selectedMonth}的总表记录`, 'success');
+                const [currentResponse, previousResponse] = await Promise.all([
+                    fetch(`${API_BASE_URL}/total-meter/month?month=${encodeURIComponent(selectedMonth)}`, {
+                        credentials: 'same-origin'
+                    }),
+                    fetch(`${API_BASE_URL}/total-meter/month?month=${encodeURIComponent(previousMonth)}`, {
+                        credentials: 'same-origin'
+                    })
+                ]);
+                if (handleUnauthorized(currentResponse) || handleUnauthorized(previousResponse)) {
+                    return;
+                }
+                const currentResult = await currentResponse.json();
+                const previousResult = await previousResponse.json();
+
+                if (currentResult.success && currentResult.data) {
+                    document.getElementById('currTotalWater').value = currentResult.data.waterReading;
+                    document.getElementById('currTotalElectric').value = currentResult.data.electricReading;
+                }
+                if (previousResult.success && previousResult.data) {
+                    document.getElementById('prevTotalWater').value = previousResult.data.waterReading;
+                    document.getElementById('prevTotalElectric').value = previousResult.data.electricReading;
+                }
+                if (currentResult.success && currentResult.data && previousResult.success && previousResult.data) {
+                    showNotification(`已加载${previousMonth}至${selectedMonth}的总表读数`, 'success');
+                } else {
+                    showNotification(`请补充${previousMonth}或${selectedMonth}缺少的总表读数`, 'error');
                 }
             } catch (error) {
-                console.log('该月份暂无总表记录');
+                console.error('加载月度总表读数失败:', error);
+                showNotification('加载总表读数失败', 'error');
             }
             
             // 加载历史记录列表
@@ -365,39 +406,60 @@
         // 加载所有保存的总表记录
         async function loadSavedRecords() {
             try {
-                const response = await fetch(`${API_BASE_URL}/total-meter`);
+                const response = await fetch(`${API_BASE_URL}/total-meter`, {
+                    credentials: 'same-origin'
+                });
+                if (handleUnauthorized(response)) {
+                    return;
+                }
                 const result = await response.json();
                 
                 if (result.success && result.data && result.data.length > 0) {
                     const section = document.getElementById('savedRecordsSection');
                     const list = document.getElementById('savedRecordsList');
-                    
-                    list.innerHTML = `
-                        <table class="results-table">
-                            <thead>
-                                <tr>
-                                    <th>月份</th>
-                                    <th>水表读数</th>
-                                    <th>电表读数</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${result.data.map(record => `
-                                    <tr>
-                                        <td><strong>${record.month}</strong></td>
-                                        <td>${record.waterReading}</td>
-                                        <td>${record.electricReading}</td>
-                                        <td>
-                                            <button class="btn btn-small btn-info" onclick="loadRecord('${record.month}')">加载</button>
-                                            <button class="btn btn-small btn-danger" onclick="deleteRecord('${record.month}')">删除</button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    `;
-                    
+                    const table = document.createElement('table');
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+                    const tbody = document.createElement('tbody');
+
+                    table.className = 'results-table';
+                    ['月份', '水表读数', '电表读数', '操作'].forEach(label => {
+                        const th = document.createElement('th');
+                        th.textContent = label;
+                        headerRow.appendChild(th);
+                    });
+                    thead.appendChild(headerRow);
+
+                    result.data.forEach(record => {
+                        const row = document.createElement('tr');
+                        const monthCell = document.createElement('td');
+                        const monthValue = document.createElement('strong');
+                        const waterCell = document.createElement('td');
+                        const electricCell = document.createElement('td');
+                        const actionsCell = document.createElement('td');
+                        const loadButton = document.createElement('button');
+                        const deleteButton = document.createElement('button');
+
+                        monthValue.textContent = record.month;
+                        monthCell.appendChild(monthValue);
+                        waterCell.textContent = record.waterReading;
+                        electricCell.textContent = record.electricReading;
+
+                        loadButton.className = 'btn btn-small btn-info';
+                        loadButton.textContent = '加载';
+                        loadButton.addEventListener('click', () => window.loadRecord(record.month));
+
+                        deleteButton.className = 'btn btn-small btn-danger';
+                        deleteButton.textContent = '删除';
+                        deleteButton.addEventListener('click', () => window.deleteRecord(record.month));
+
+                        actionsCell.append(loadButton, deleteButton);
+                        row.append(monthCell, waterCell, electricCell, actionsCell);
+                        tbody.appendChild(row);
+                    });
+
+                    table.append(thead, tbody);
+                    list.replaceChildren(table);
                     section.style.display = 'block';
                 }
             } catch (error) {
@@ -418,9 +480,13 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE_URL}/total-meter/${month}`, {
-                    method: 'DELETE'
+                const response = await fetch(`${API_BASE_URL}/total-meter/${encodeURIComponent(month)}`, {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
                 });
+                if (handleUnauthorized(response)) {
+                    return;
+                }
                 const result = await response.json();
                 
                 if (result.success) {
@@ -451,6 +517,7 @@
             try {
                 const response = await fetch(`${API_BASE_URL}/total-meter`, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         month: month,
@@ -458,6 +525,9 @@
                         electricReading: electricReading
                     })
                 });
+                if (handleUnauthorized(response)) {
+                    return;
+                }
                 
                 const result = await response.json();
                 
@@ -466,8 +536,9 @@
                     loadSavedRecords();
                 } else {
                     // 如果已存在，尝试更新
-                    const updateResponse = await fetch(`${API_BASE_URL}/total-meter/${month}`, {
+                    const updateResponse = await fetch(`${API_BASE_URL}/total-meter/${encodeURIComponent(month)}`, {
                         method: 'PUT',
+                        credentials: 'same-origin',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             month: month,
@@ -475,6 +546,9 @@
                             electricReading: electricReading
                         })
                     });
+                    if (handleUnauthorized(updateResponse)) {
+                        return;
+                    }
                     
                     const updateResult = await updateResponse.json();
                     if (updateResult.success) {
@@ -522,26 +596,33 @@
                 return;
             }
             
-            calculatedRecords = records;
+            calculatedRecords = records.filter(record => record.roomNumber !== '总表');
             
             // 计算总表用量
             const totalWaterUsage = currTotalWater - prevTotalWater;
             const totalElectricUsage = currTotalElectric - prevTotalElectric;
             
-            // 计算所有分表用量之和
+            // 总表记录是独立计量项，不参与住户分表合计。
+            const householdRecords = records.filter(record => record.roomNumber !== '总表');
+            const householdCount = householdRecords.length;
+            if (householdCount === 0) {
+                showNotification(`没有找到${selectedMonth}的住户分表数据`, 'error');
+                return;
+            }
+
+            // 计算27户（当月实际住户数）分表用量之和。
             let subWaterUsage = 0;
             let subElectricUsage = 0;
-            
-            records.forEach(record => {
+            householdRecords.forEach(record => {
                 const waterUsage = record.currentWater - record.previousWater;
                 const electricUsage = record.currentElectric - record.previousElectric;
                 subWaterUsage += waterUsage;
                 subElectricUsage += electricUsage;
             });
             
-            // 计算补差
-            waterAdjustment = totalWaterUsage - subWaterUsage;
-            electricAdjustment = totalElectricUsage - subElectricUsage;
+            // 每户补差 = (总表用量 - 住户分表合计) ÷ 当月实际住户数。
+            waterAdjustment = (totalWaterUsage - subWaterUsage) / householdCount;
+            electricAdjustment = (totalElectricUsage - subElectricUsage) / householdCount;
             
             // 显示结果
             document.getElementById('totalWaterUsage').textContent = totalWaterUsage.toFixed(2);
@@ -554,6 +635,7 @@
             
             waterAdjEl.textContent = waterAdjustment.toFixed(2);
             electricAdjEl.textContent = electricAdjustment.toFixed(2);
+            document.querySelector('#resultsSection h3').textContent = `用户明细（${householdCount}户，独立排除总表）`;
             
             // 设置颜色
             waterAdjEl.className = 'adjustment-value ' + (waterAdjustment < 0 ? 'negative' : waterAdjustment > 0 ? 'positive' : '');
@@ -561,22 +643,46 @@
             
             // 显示用户明细
             const tbody = document.getElementById('resultsTableBody');
-            tbody.innerHTML = records.map(record => {
+            const rows = householdRecords.map(record => {
                 const waterUsage = record.currentWater - record.previousWater;
                 const electricUsage = record.currentElectric - record.previousElectric;
-                
-                return `
-                    <tr>
-                        <td><strong>${record.roomNumber}</strong></td>
-                        <td>${record.previousWater}</td>
-                        <td>${record.currentWater}</td>
-                        <td><strong>${waterUsage.toFixed(2)}</strong></td>
-                        <td>${record.previousElectric}</td>
-                        <td>${record.currentElectric}</td>
-                        <td><strong>${electricUsage.toFixed(2)}</strong></td>
-                    </tr>
-                `;
-            }).join('');
+                const row = document.createElement('tr');
+                const roomCell = document.createElement('td');
+                const roomValue = document.createElement('strong');
+                const waterUsageCell = document.createElement('td');
+                const waterUsageValue = document.createElement('strong');
+                const electricUsageCell = document.createElement('td');
+                const electricUsageValue = document.createElement('strong');
+
+                roomValue.textContent = record.roomNumber;
+                roomCell.appendChild(roomValue);
+                waterUsageValue.textContent = waterUsage.toFixed(2);
+                waterUsageCell.appendChild(waterUsageValue);
+                electricUsageValue.textContent = electricUsage.toFixed(2);
+                electricUsageCell.appendChild(electricUsageValue);
+
+                [
+                    roomCell,
+                    record.previousWater,
+                    record.currentWater,
+                    waterUsageCell,
+                    record.previousElectric,
+                    record.currentElectric,
+                    electricUsageCell
+                ].forEach(value => {
+                    if (value instanceof HTMLElement) {
+                        row.appendChild(value);
+                        return;
+                    }
+
+                    const cell = document.createElement('td');
+                    cell.textContent = value;
+                    row.appendChild(cell);
+                });
+
+                return row;
+            });
+            tbody.replaceChildren(...rows);
             
             // 显示结果区域
             document.getElementById('resultsSection').style.display = 'block';
@@ -587,30 +693,6 @@
             showNotification('计算完成！', 'success');
         };
         
-        window.applyAdjustments = async function() {
-            if (calculatedRecords.length === 0) {
-                showNotification('请先计算补差', 'error');
-                return;
-            }
-            
-            const confirmMsg = `确定要将以下补差值应用到所有 ${calculatedRecords.length} 个用户吗？\n\n` +
-                              `水表补差: ${waterAdjustment.toFixed(2)} 吨\n` +
-                              `电表补差: ${electricAdjustment.toFixed(2)} 度`;
-            
-            if (!confirm(confirmMsg)) {
-                return;
-            }
-            
-            const ids = calculatedRecords.map(r => r.id);
-            const result = await batchSetAdjustment(ids, waterAdjustment, electricAdjustment);
-            
-            if (result) {
-                showNotification(`成功为 ${result.count} 个用户设置补差！`, 'success');
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 2000);
-            }
-        };
         // 自动运行测试
         window.onload = function() {
             // 设置默认月份为当前月份

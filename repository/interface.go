@@ -1,4 +1,4 @@
-﻿package repository
+package repository
 
 import "ginMeterBox/models"
 
@@ -12,6 +12,9 @@ type BillingRepo interface {
 	Create(record *models.BillingRecord) error
 	Update(id int, record *models.BillingRecord) error
 	Delete(id int) error
+	BatchDelete(ids []int) (int, error)
+	BatchUpdateAdjustments(ids []int, waterAdjustment, electricAdjustment *float64) (int, error)
+	BatchSetExtraFees(ids []int, extraFees []models.ExtraFee, mode string) (int, error)
 	BatchImport(records []models.BillingRecord) error
 	ExportToJSON(filepath string) error
 }

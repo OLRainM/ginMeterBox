@@ -4,9 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ginMeterBox - 水电费管理</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=3.0.1">
 </head>
 <body>
+    <div id="loginOverlay" class="login-overlay" hidden>
+        <form id="loginForm" class="login-panel" autocomplete="on">
+            <h2>登录水电费管理系统</h2>
+            <p>请输入管理员密码以继续。</p>
+            <label for="loginPassword">管理员密码</label>
+            <input id="loginPassword" type="password" name="password" autocomplete="current-password" required>
+            <p id="loginError" class="login-error" role="alert" hidden></p>
+            <button type="submit" class="btn btn-primary">登录</button>
+        </form>
+    </div>
     <div class="container">
         <header>
             <h1>ginMeterBox</h1>
@@ -53,43 +63,45 @@
                 </div>
             </div>
 
-            <!-- 水电差分析面板 -->
+            <!-- 总表与住户补差面板：总表独立显示，住户统计不包含“总表”记录 -->
             <div class="diff-panel" id="diffPanel" style="display:none;">
-                <h3>⚖️ 水电差分析</h3>
+                <h3>⚖️ 月度总表与住户补差</h3>
+                <p class="diff-description">总表用量减去其余住户分表用量之和，再除以当月实际住户数，得到每户建议补差。</p>
                 <div class="diff-grid">
-                    <div class="diff-item">
-                        <span class="diff-label">💧 总表用水量</span>
+                    <div class="diff-item diff-total-meter">
+                        <span class="diff-label">💧 总表用水量（独立）</span>
                         <span class="diff-value" id="totalMeterWater">-</span>
                     </div>
                     <div class="diff-item">
-                        <span class="diff-label">💧 各户用水之和</span>
+                        <span class="diff-label">💧 住户用水量合计</span>
                         <span class="diff-value" id="sumUserWater">-</span>
                     </div>
                     <div class="diff-item">
-                        <span class="diff-label">💧 水差</span>
+                        <span class="diff-label">💧 水量差值</span>
                         <span class="diff-value diff-highlight" id="waterDiff">-</span>
                     </div>
-                    <div class="diff-item">
-                        <span class="diff-label">💧 建议补差 (÷27)</span>
+                    <div class="diff-item diff-suggest-item">
+                        <span class="diff-label">💧 每户建议补水</span>
                         <span class="diff-value diff-suggest" id="waterSuggest">-</span>
                     </div>
-                    <div class="diff-item">
-                        <span class="diff-label">⚡ 总表用电量</span>
+                    <div class="diff-item diff-total-meter">
+                        <span class="diff-label">⚡ 总表用电量（独立）</span>
                         <span class="diff-value" id="totalMeterElectric">-</span>
                     </div>
                     <div class="diff-item">
-                        <span class="diff-label">⚡ 各户用电之和</span>
+                        <span class="diff-label">⚡ 住户用电量合计</span>
                         <span class="diff-value" id="sumUserElectric">-</span>
                     </div>
                     <div class="diff-item">
-                        <span class="diff-label">⚡ 电差</span>
+                        <span class="diff-label">⚡ 电量差值</span>
                         <span class="diff-value diff-highlight" id="electricDiff">-</span>
                     </div>
-                    <div class="diff-item">
-                        <span class="diff-label">⚡ 建议补差 (÷27)</span>
+                    <div class="diff-item diff-suggest-item">
+                        <span class="diff-label">⚡ 每户建议补电</span>
                         <span class="diff-value diff-suggest" id="electricSuggest">-</span>
                     </div>
                 </div>
+                <p class="diff-count">参与统计住户：<strong id="householdCount">0</strong> 户</p>
             </div>
 
             <!-- 统计面板 -->
@@ -540,6 +552,6 @@
         <button class="btn btn-small" onclick="window.billingApp.clearSelection()">⬜ 取消全选</button>
     </div>
 
-    <script type="module" src="/static/js/main.js?v=3.0.0"></script>
+    <script type="module" src="/static/js/main.js?v=3.1.0"></script>
 </body>
 </html>

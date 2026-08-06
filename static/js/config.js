@@ -4,7 +4,7 @@
  */
 
 // API配置
-export const API_BASE_URL = 'http://localhost:8080/api/v1';
+export const API_BASE_URL = window.__APP_CONFIG__?.apiBaseUrl || `${window.location.origin}/api/v1`;
 
 // 全局状态
 export const state = {

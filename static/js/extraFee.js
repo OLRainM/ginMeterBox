@@ -4,6 +4,46 @@
 
 import { state, resetExtraFeeCounter, resetBatchExtraFeeCounter } from './config.js';
 
+function createExtraFeeInput(id, name, amount, options) {
+    const item = document.createElement('div');
+    item.className = 'extra-fee-item';
+    item.id = options.itemId(id);
+
+    const row = document.createElement('div');
+    row.className = 'form-row';
+
+    const nameGroup = document.createElement('div');
+    nameGroup.className = 'form-group';
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.placeholder = '费用名称（如：水管维修费）';
+    nameInput.className = options.nameClass;
+    nameInput.value = name;
+    nameGroup.appendChild(nameInput);
+
+    const amountGroup = document.createElement('div');
+    amountGroup.className = 'form-group';
+    const amountInput = document.createElement('input');
+    amountInput.type = 'number';
+    amountInput.placeholder = '金额';
+    amountInput.step = '0.01';
+    amountInput.className = options.amountClass;
+    amountInput.value = amount;
+    amountGroup.appendChild(amountInput);
+
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'btn btn-danger';
+    removeButton.style.cssText = 'padding: 5px 10px;';
+    removeButton.textContent = '✕';
+    removeButton.dataset.feeId = id;
+    removeButton.addEventListener('click', () => options.remove(id));
+
+    row.append(nameGroup, amountGroup, removeButton);
+    item.appendChild(row);
+    return item;
+}
+
 /**
  * 添加额外费用输入框
  * @param {string} name - 费用名称
@@ -12,28 +52,12 @@ import { state, resetExtraFeeCounter, resetBatchExtraFeeCounter } from './config
 export function addExtraFeeInput(name = '', amount = '') {
     const container = document.getElementById('extraFeesContainer');
     const id = state.extraFeeCounter++;
-    
-    const div = document.createElement('div');
-    div.className = 'extra-fee-item';
-    div.id = `extraFee${id}`;
-    div.innerHTML = `
-        <div class="form-row">
-            <div class="form-group">
-                <input type="text" placeholder="费用名称（如：水管维修费）" 
-                       class="extra-fee-name" value="${name}">
-            </div>
-            <div class="form-group">
-                <input type="number" placeholder="金额" step="0.01" 
-                       class="extra-fee-amount" value="${amount}">
-            </div>
-            <button type="button" class="btn btn-danger" onclick="window.billingApp.removeExtraFeeInput(${id})"
-                    style="padding: 5px 10px;">
-                ✕
-            </button>
-        </div>
-    `;
-    
-    container.appendChild(div);
+    container.appendChild(createExtraFeeInput(id, name, amount, {
+        itemId: feeId => `extraFee${feeId}`,
+        nameClass: 'extra-fee-name',
+        amountClass: 'extra-fee-amount',
+        remove: removeExtraFeeInput
+    }));
 }
 
 /**
@@ -52,7 +76,7 @@ export function removeExtraFeeInput(id) {
  */
 export function clearExtraFeeInputs() {
     const container = document.getElementById('extraFeesContainer');
-    container.innerHTML = '';
+    container.replaceChildren();
     resetExtraFeeCounter();
 }
 
@@ -64,16 +88,16 @@ export function getExtraFees() {
     const fees = [];
     const names = document.querySelectorAll('.extra-fee-name');
     const amounts = document.querySelectorAll('.extra-fee-amount');
-    
+
     for (let i = 0; i < names.length; i++) {
         const name = names[i].value.trim();
         const amount = parseFloat(amounts[i].value) || 0;
-        
+
         if (name && amount > 0) {
             fees.push({ name, amount });
         }
     }
-    
+
     return fees;
 }
 
@@ -100,28 +124,12 @@ export function loadExtraFees(extraFees) {
 export function addBatchExtraFeeInput(name = '', amount = '') {
     const container = document.getElementById('batchExtraFeesContainer');
     const id = state.batchExtraFeeCounter++;
-    
-    const div = document.createElement('div');
-    div.className = 'extra-fee-item';
-    div.id = `batchExtraFee${id}`;
-    div.innerHTML = `
-        <div class="form-row">
-            <div class="form-group">
-                <input type="text" placeholder="费用名称（如：水管维修费）" 
-                       class="batch-extra-fee-name" value="${name}">
-            </div>
-            <div class="form-group">
-                <input type="number" placeholder="金额" step="0.01" 
-                       class="batch-extra-fee-amount" value="${amount}">
-            </div>
-            <button type="button" class="btn btn-danger" onclick="window.billingApp.removeBatchExtraFeeInput(${id})"
-                    style="padding: 5px 10px;">
-                ✕
-            </button>
-        </div>
-    `;
-    
-    container.appendChild(div);
+    container.appendChild(createExtraFeeInput(id, name, amount, {
+        itemId: feeId => `batchExtraFee${feeId}`,
+        nameClass: 'batch-extra-fee-name',
+        amountClass: 'batch-extra-fee-amount',
+        remove: removeBatchExtraFeeInput
+    }));
 }
 
 /**
@@ -140,7 +148,7 @@ export function removeBatchExtraFeeInput(id) {
  */
 export function clearBatchExtraFeeInputs() {
     const container = document.getElementById('batchExtraFeesContainer');
-    container.innerHTML = '';
+    container.replaceChildren();
     resetBatchExtraFeeCounter();
 }
 
@@ -152,15 +160,15 @@ export function getBatchExtraFees() {
     const fees = [];
     const names = document.querySelectorAll('.batch-extra-fee-name');
     const amounts = document.querySelectorAll('.batch-extra-fee-amount');
-    
+
     for (let i = 0; i < names.length; i++) {
         const name = names[i].value.trim();
         const amount = parseFloat(amounts[i].value) || 0;
-        
+
         if (name && amount > 0) {
             fees.push({ name, amount });
         }
     }
-    
+
     return fees;
 }

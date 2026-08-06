@@ -44,11 +44,23 @@ go run main.go
   "font": {
     "bold": "C:\\Windows\\Fonts\\msyhbd.ttc",
     "regular": "C:\\Windows\\Fonts\\msyh.ttc"
+  },
+  "security": {
+    "adminPasswordHash": "$2a$12$replace-with-a-real-bcrypt-hash",
+    "sessionCookieSecure": false,
+    "allowedOrigins": []
   }
 }
 ```
 
-不提供 `config.json` 时使用内置默认值。
+安全配置说明：
+
+- `adminPasswordHash` 必须是管理员密码的 bcrypt 哈希；服务会拒绝使用空值或无效哈希启动，不能将明文密码写入配置。
+- 可在安装 Apache 工具后使用 `htpasswd -bnBC 12 "" "你的管理员密码" | tr -d ':\n'` 生成 bcrypt 哈希；将输出完整复制到 `adminPasswordHash`。
+- `sessionCookieSecure` 在 HTTPS 部署时必须设为 `true`；本机 `http://localhost` 调试可设为 `false`。
+- `allowedOrigins` 默认空数组，即仅允许同源浏览器访问。只有确实存在独立前端域名时才加入精确来源，例如 `["https://billing.example.com"]`；不要填 `*`。
+- 会话使用 HttpOnly、SameSite=Strict Cookie，默认有效期为 8 小时；服务重启后会话会失效，需要重新登录。
+- 安全加固版本要求 `security.adminPasswordHash`，因此首次运行前必须复制并配置 `config.json`。
 
 ## 项目结构
 
@@ -85,6 +97,16 @@ go-ele/
 
 基础路径：`/api/v1`
 
+### 认证
+
+除 `POST /auth/login` 与 `GET /health` 外，所有 API 均要求有效的管理员会话 Cookie。浏览器访问首页后会显示登录层；脚本客户端需先调用 `POST /auth/login` 并保存服务器下发的 Cookie。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | /auth/login | 使用 JSON `{ "password": "..." }` 建立会话 |
+| POST | /auth/logout | 注销当前会话 |
+| GET | /auth/session | 校验当前会话 |
+
 ### 账单
 
 | 方法 | 路径 | 说明 |
@@ -103,8 +125,9 @@ go-ele/
 | POST | /billing/batch-adjustment | 批量补差 |
 | POST | /billing/batch-extra-fee | 批量额外费用 |
 | POST | /billing/import | 批量导入 |
-| GET | /billing/export | 导出 JSON |
-| POST | /billing/export-excel | 导出 Excel |
+| GET | /billing/export | 由服务端生成 JSON，并返回受限下载 URL |
+| GET | /billing/export/download?file=generated_... | 下载服务端生成的 JSON/Excel |
+| POST | /billing/export-excel | 由服务端生成 Excel，并返回受限下载 URL |
 | GET | /billing/report/generate | 生成报表图片 |
 | GET | /billing/card/:id | 生成单卡片 |
 | GET | /billing/download?file=xxx | 下载图片 |

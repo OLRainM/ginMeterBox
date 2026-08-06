@@ -15,6 +15,7 @@ import { showContinueForm, closeContinueModal, toggleContinueMode, selectAllRoom
 import { addExtraFeeInput, removeExtraFeeInput, addBatchExtraFeeInput, removeBatchExtraFeeInput } from './extraFee.js';
 import { handleBatchDelete, handleExportToExcel, showBatchExtraFeeModal, closeBatchExtraFeeModal, executeBatchExtraFee, showBatchAdjustmentModal, closeBatchAdjustmentModal, executeBatchAdjustment } from './batch.js';
 import { showSmartMatchModal, closeSmartMatchModal, previewMatch, executeSmartMatch } from './smartMatch.js';
+import { checkSession, setupAuth, showLogin } from './auth.js';
 
 /**
  * 账单管理应用类
@@ -28,19 +29,24 @@ class BillingApp {
      * 初始化应用
      */
     async init() {
-        // 加载数据（填充筛选器，但不直接显示）
-        await this.loadRecords();
-
-        // 设置表单处理器
+        // 先安装仅依赖静态 DOM 的交互，再验证 HttpOnly 会话。
         setupFormHandler(() => this.loadRecords(state.currentSortOrder));
-
-        // 设置计算器
         setupCalculator();
-
-        // 暴露全局方法供HTML调用
         this.exposeGlobalMethods();
+        setupAuth(async () => this.startAuthenticatedSession());
 
-        // 初始显示空状态，要求先选月份
+        if (await checkSession()) {
+            await this.startAuthenticatedSession();
+            return;
+        }
+
+        showEmptyMonth();
+        updateStatistics([]);
+        showLogin();
+    }
+
+    async startAuthenticatedSession() {
+        await this.loadRecords();
         showEmptyMonth();
         updateStatistics([]);
     }

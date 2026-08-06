@@ -1,144 +1,81 @@
-﻿package handlers
+package handlers
 
 import (
-	"fmt"
-	"strings"
-
-	"ginMeterBox/models"
+	"ginMeterBox/dto"
 	"ginMeterBox/pkg/response"
+	"ginMeterBox/repository"
 
 	"github.com/gin-gonic/gin"
 )
 
-// BatchDelete 批量删除记录
+// BatchDelete 批量删除记录。
 func (h *BillingHandler) BatchDelete(c *gin.Context) {
-	var req struct {
-		IDs []int `json:"ids"`
-	}
+	var req dto.BatchDeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "无效的请求格式: "+err.Error())
+		response.BadRequest(c, "请求格式无效")
 		return
 	}
-	if len(req.IDs) == 0 {
-		response.BadRequest(c, "请选择要删除的记录")
+	if err := req.Validate(); err != nil {
+		response.BadRequest(c, err.Error())
 		return
 	}
-
-	successCount := 0
-	for _, id := range req.IDs {
-		if err := h.repo.Delete(id); err == nil {
-			successCount++
+	count, err := h.service.BatchDelete(req.IDs)
+	if err != nil {
+		if err == repository.ErrRecordNotFound {
+			response.NotFound(c, "存在未找到的记录，未执行删除")
+			return
 		}
-	}
-	if successCount == 0 {
-		response.ServerError(c, "批量删除失败，没有记录被删除")
+		response.ServerError(c, "批量删除失败")
 		return
 	}
-	response.OKData(c, gin.H{"count": successCount, "message": fmt.Sprintf("成功删除 %d 条记录", successCount)})
+	response.OK(c, gin.H{"count": count, "message": "批量删除成功"})
 }
 
-// BatchSetAdjustment 批量设置水电补差
+// BatchSetAdjustment 批量设置水电补差。
 func (h *BillingHandler) BatchSetAdjustment(c *gin.Context) {
-	var request struct {
-		IDs                []int    `json:"ids"`
-		WaterAdjustment    *float64 `json:"waterAdjustment"`
-		ElectricAdjustment *float64 `json:"electricAdjustment"`
-	}
-	if err := c.ShouldBindJSON(&request); err != nil {
-		response.BadRequest(c, "无效的请求格式: "+err.Error())
+	var req dto.BatchAdjustmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求格式无效")
 		return
 	}
-	if len(request.IDs) == 0 {
-		response.BadRequest(c, "请选择要设置补差的记录")
+	if err := req.Validate(); err != nil {
+		response.BadRequest(c, err.Error())
 		return
 	}
-	if request.WaterAdjustment == nil && request.ElectricAdjustment == nil {
-		response.BadRequest(c, "请至少设置一个补差值")
+	count, err := h.service.BatchUpdateAdjustments(req.IDs, req.WaterAdjustment, req.ElectricAdjustment)
+	if err != nil {
+		if err == repository.ErrRecordNotFound {
+			response.NotFound(c, "存在未找到的记录，未执行更新")
+			return
+		}
+		response.ServerError(c, "批量设置补差失败")
 		return
 	}
-
-	count := 0
-	var updateErrors []string
-	for _, id := range request.IDs {
-		record, err := h.repo.GetByID(id)
-		if err != nil {
-			updateErrors = append(updateErrors, fmt.Sprintf("记录ID %d 不存在", id))
-			continue
-		}
-		if request.WaterAdjustment != nil {
-			record.WaterAdjustment = *request.WaterAdjustment
-		}
-		if request.ElectricAdjustment != nil {
-			record.ElectricAdjustment = *request.ElectricAdjustment
-		}
-		record.CalculateCosts()
-		if err := h.repo.Update(id, record); err == nil {
-			count++
-		} else {
-			updateErrors = append(updateErrors, fmt.Sprintf("房号%s更新失败: %v", record.RoomNumber, err))
-		}
-	}
-
-	if count == 0 {
-		errorMsg := "批量设置失败，没有记录被更新"
-		if len(updateErrors) > 0 {
-			errorMsg = fmt.Sprintf("%s: %s", errorMsg, strings.Join(updateErrors, "; "))
-		}
-		response.ServerError(c, errorMsg)
-		return
-	}
-
-	result := gin.H{"message": fmt.Sprintf("成功为 %d 条记录设置补差", count), "count": count}
-	if len(updateErrors) > 0 {
-		result["warnings"] = updateErrors
-		result["message"] = fmt.Sprintf("成功为 %d 条记录设置补差，%d 条失败", count, len(updateErrors))
-	}
-	response.OKData(c, result)
+	response.OK(c, gin.H{"count": count, "message": "批量设置补差成功"})
 }
 
-// BatchSetExtraFee 批量设置额外费用
+// BatchSetExtraFee 批量设置额外费用。
 func (h *BillingHandler) BatchSetExtraFee(c *gin.Context) {
-	var request struct {
-		IDs       []int             `json:"ids"`
-		ExtraFees []models.ExtraFee `json:"extraFees"`
-		Mode      string            `json:"mode"`
-	}
-	if err := c.ShouldBindJSON(&request); err != nil {
-		response.BadRequest(c, "无效的请求格式: "+err.Error())
+	var req dto.BatchExtraFeeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求格式无效")
 		return
 	}
-	if len(request.IDs) == 0 {
-		response.BadRequest(c, "请选择要设置额外费用的记录")
+	if err := req.Validate(); err != nil {
+		response.BadRequest(c, err.Error())
 		return
 	}
-	if len(request.ExtraFees) == 0 {
-		response.BadRequest(c, "请至少添加一项额外费用")
-		return
+	if req.Mode == "" {
+		req.Mode = "append"
 	}
-	if request.Mode != "append" && request.Mode != "replace" {
-		request.Mode = "append"
-	}
-
-	count := 0
-	for _, id := range request.IDs {
-		record, err := h.repo.GetByID(id)
-		if err != nil {
-			continue
+	count, err := h.service.BatchSetExtraFees(req.IDs, req.ExtraFees, req.Mode)
+	if err != nil {
+		if err == repository.ErrRecordNotFound {
+			response.NotFound(c, "存在未找到的记录，未执行更新")
+			return
 		}
-		if request.Mode == "replace" {
-			record.ExtraFees = request.ExtraFees
-		} else {
-			record.ExtraFees = append(record.ExtraFees, request.ExtraFees...)
-		}
-		record.CalculateCosts()
-		if err := h.repo.Update(id, record); err == nil {
-			count++
-		}
-	}
-
-	if count == 0 {
-		response.ServerError(c, "批量设置失败，没有记录被更新")
+		response.ServerError(c, "批量设置额外费用失败")
 		return
 	}
-	response.OKData(c, gin.H{"message": "批量设置成功", "count": count})
+	response.OK(c, gin.H{"count": count, "message": "批量设置额外费用成功"})
 }

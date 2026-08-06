@@ -5,61 +5,115 @@
 
 import { state } from './config.js';
 
+function createCell(content) {
+    const cell = document.createElement('td');
+    if (content instanceof Node) {
+        cell.appendChild(content);
+    } else {
+        cell.textContent = content;
+    }
+    return cell;
+}
+
+function createButton(className, text, onClick) {
+    const button = document.createElement('button');
+    button.className = className;
+    button.type = 'button';
+    button.textContent = text;
+    button.addEventListener('click', onClick);
+    return button;
+}
+
 /**
  * 显示记录列表
  * @param {Array} records - 记录数组
  */
 export function displayRecords(records) {
     const tbody = document.getElementById('tableBody');
+    const householdRecords = (records || []).filter(record => record.roomNumber !== '总表');
 
-    if (!records || records.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="11" class="no-data">当前月份暂无数据</td></tr>';
+    if (householdRecords.length === 0) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 11;
+        cell.className = 'no-data';
+        cell.textContent = '当前月份暂无数据';
+        row.appendChild(cell);
+        tbody.replaceChildren(row);
         return;
     }
 
-    tbody.innerHTML = records.map(record => {
-        // 格式化额外费用显示
-        let extraFeesDisplay = '-';
+    const rows = householdRecords.map(record => {
+        const row = document.createElement('tr');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'record-checkbox';
+        checkbox.value = record.id;
+        checkbox.addEventListener('change', updateSelectedStatistics);
+        row.appendChild(createCell(checkbox));
+
+        const roomNumber = document.createElement('strong');
+        roomNumber.textContent = record.roomNumber;
+        row.appendChild(createCell(roomNumber));
+        row.appendChild(createCell(record.billingMonth));
+
+        const rawWater = (record.currentWater - record.previousWater).toFixed(1);
+        const waterUsage = document.createDocumentFragment();
+        const rawWaterSpan = document.createElement('span');
+        rawWaterSpan.className = 'raw-val';
+        rawWaterSpan.textContent = rawWater;
+        const waterUsageSpan = document.createElement('span');
+        waterUsageSpan.className = 'adj-val';
+        waterUsageSpan.textContent = record.waterUsage.toFixed(1);
+        waterUsage.append(rawWaterSpan, waterUsageSpan);
+        row.appendChild(createCell(waterUsage));
+        row.appendChild(createCell(`¥${record.totalWaterCost.toFixed(2)}`));
+
+        const rawElectric = (record.currentElectric - record.previousElectric).toFixed(1);
+        const electricUsage = document.createDocumentFragment();
+        const rawElectricSpan = document.createElement('span');
+        rawElectricSpan.className = 'raw-val';
+        rawElectricSpan.textContent = rawElectric;
+        const electricUsageSpan = document.createElement('span');
+        electricUsageSpan.className = 'adj-val';
+        electricUsageSpan.textContent = record.electricUsage.toFixed(1);
+        electricUsage.append(rawElectricSpan, electricUsageSpan);
+        row.appendChild(createCell(electricUsage));
+        row.appendChild(createCell(`¥${record.totalElectricCost.toFixed(2)}`));
+        row.appendChild(createCell(`¥${record.managementFee.toFixed(2)}`));
+
+        const extraFeesCell = document.createElement('td');
         if (record.extraFees && record.extraFees.length > 0) {
             const extraTotal = record.extraFees.reduce((sum, fee) => sum + fee.amount, 0);
-            const feeNames = record.extraFees.map(fee => fee.name).join(', ');
-            extraFeesDisplay = `<span title="${feeNames}">¥${extraTotal.toFixed(2)} (${record.extraFees.length}项)</span>`;
+            const extraFeesDisplay = document.createElement('span');
+            extraFeesDisplay.title = record.extraFees.map(fee => fee.name).join(', ');
+            extraFeesDisplay.textContent = `¥${extraTotal.toFixed(2)} (${record.extraFees.length}项)`;
+            extraFeesCell.appendChild(extraFeesDisplay);
+        } else {
+            extraFeesCell.textContent = '-';
         }
+        row.appendChild(extraFeesCell);
 
-        // 表显用量（不含补差）
-        const rawWater = (record.currentWater - record.previousWater).toFixed(1);
-        const rawElectric = (record.currentElectric - record.previousElectric).toFixed(1);
+        const totalCost = document.createElement('strong');
+        totalCost.textContent = `¥${record.totalCost.toFixed(2)}`;
+        row.appendChild(createCell(totalCost));
 
-        return `
-        <tr>
-            <td><input type="checkbox" class="record-checkbox" value="${record.id}"></td>
-            <td><strong>${record.roomNumber}</strong></td>
-            <td>${record.billingMonth}</td>
-            <td><span class="raw-val">${rawWater}</span><span class="adj-val">${record.waterUsage.toFixed(1)}</span></td>
-            <td>¥${record.totalWaterCost.toFixed(2)}</td>
-            <td><span class="raw-val">${rawElectric}</span><span class="adj-val">${record.electricUsage.toFixed(1)}</span></td>
-            <td>¥${record.totalElectricCost.toFixed(2)}</td>
-            <td>¥${record.managementFee.toFixed(2)}</td>
-            <td>${extraFeesDisplay}</td>
-            <td><strong>¥${record.totalCost.toFixed(2)}</strong></td>
-            <td>
-                <div class="action-buttons">
-                    <button class="btn btn-warning" onclick="window.billingApp.editRecord(${record.id})">编辑</button>
-                    <button class="btn btn-danger" onclick="window.billingApp.deleteRecord(${record.id})">删除</button>
-                    <button class="btn btn-report" onclick="window.billingApp.generateSingleCard(${record.id})">📊</button>
-                </div>
-            </td>
-        </tr>
-    `}).join('');
+        const actionCell = document.createElement('td');
+        const actionButtons = document.createElement('div');
+        actionButtons.className = 'action-buttons';
+        actionButtons.append(
+            createButton('btn btn-warning', '编辑', () => window.billingApp.editRecord(record.id)),
+            createButton('btn btn-danger', '删除', () => window.billingApp.deleteRecord(record.id)),
+            createButton('btn btn-report', '📊', () => window.billingApp.generateSingleCard(record.id))
+        );
+        actionCell.appendChild(actionButtons);
+        row.appendChild(actionCell);
 
-    // 为所有复选框添加事件监听
-    setTimeout(() => {
-        document.querySelectorAll('.record-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('change', updateSelectedStatistics);
-        });
-        // 初始化选中统计
-        updateSelectedStatistics();
-    }, 0);
+        return row;
+    });
+
+    tbody.replaceChildren(...rows);
+    updateSelectedStatistics();
 }
 
 /**
@@ -67,10 +121,12 @@ export function displayRecords(records) {
  * @param {Array} records - 记录数组
  */
 export function updateStatistics(records) {
-    const total = records.length;
-    const totalCost = records.reduce((sum, r) => sum + r.totalCost, 0);
-    const totalWater = records.reduce((sum, r) => sum + r.totalWaterCost, 0);
-    const totalElectric = records.reduce((sum, r) => sum + r.totalElectricCost, 0);
+    // “总表”是独立计量项，不计入27户住户的总数和费用汇总。
+    const householdRecords = records.filter(record => record.roomNumber !== '总表');
+    const total = householdRecords.length;
+    const totalCost = householdRecords.reduce((sum, r) => sum + r.totalCost, 0);
+    const totalWater = householdRecords.reduce((sum, r) => sum + r.totalWaterCost, 0);
+    const totalElectric = householdRecords.reduce((sum, r) => sum + r.totalElectricCost, 0);
 
     document.getElementById('totalRecords').textContent = total;
     document.getElementById('totalCost').textContent = `¥${totalCost.toFixed(2)}`;
@@ -87,24 +143,17 @@ export function updateSelectedStatistics() {
     const selectedPanel = document.getElementById('selectedStatistics');
 
     if (selectedIds.length === 0) {
-        // 没有选中任何记录，隐藏统计面板
         selectedPanel.style.display = 'none';
         return;
     }
 
-    // 显示统计面板
     selectedPanel.style.display = 'block';
-
-    // 获取选中的记录
-    const selectedRecords = state.allRecords.filter(record => selectedIds.includes(record.id));
-
-    // 计算统计数据
+    const selectedRecords = state.allRecords.filter(record => record.roomNumber !== '总表' && selectedIds.includes(record.id));
     const count = selectedRecords.length;
     const totalWaterCost = selectedRecords.reduce((sum, r) => sum + r.totalWaterCost, 0);
     const totalElectricCost = selectedRecords.reduce((sum, r) => sum + r.totalElectricCost, 0);
     const totalManagementFee = selectedRecords.reduce((sum, r) => sum + r.managementFee, 0);
 
-    // 计算额外费用总和
     let totalExtraFee = 0;
     selectedRecords.forEach(record => {
         if (record.extraFees && record.extraFees.length > 0) {
@@ -114,7 +163,6 @@ export function updateSelectedStatistics() {
 
     const totalCost = selectedRecords.reduce((sum, r) => sum + r.totalCost, 0);
 
-    // 更新显示
     document.getElementById('selectedCount').textContent = count;
     document.getElementById('selectedWaterCost').textContent = `¥${totalWaterCost.toFixed(2)}`;
     document.getElementById('selectedElectricCost').textContent = `¥${totalElectricCost.toFixed(2)}`;
@@ -130,14 +178,13 @@ export function populateRoomFilter() {
     const roomFilter = document.getElementById('roomFilter');
     if (!roomFilter) return;
 
-    // 获取所有唯一的房号
-    const rooms = [...new Set(state.allRecords.map(r => r.roomNumber))].sort();
-
-    // 保存当前选中的值
+    const rooms = [...new Set(state.allRecords.filter(r => r.roomNumber !== '总表').map(r => r.roomNumber))].sort();
     const currentValue = roomFilter.value;
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = '全部房号';
+    roomFilter.replaceChildren(defaultOption);
 
-    // 清空并重新填充
-    roomFilter.innerHTML = '<option value="">全部房号</option>';
     rooms.forEach(room => {
         const option = document.createElement('option');
         option.value = room;
@@ -145,7 +192,6 @@ export function populateRoomFilter() {
         roomFilter.appendChild(option);
     });
 
-    // 恢复选中的值
     if (currentValue && rooms.includes(currentValue)) {
         roomFilter.value = currentValue;
     }
@@ -157,7 +203,6 @@ export function populateRoomFilter() {
 export function toggleSelectAll() {
     const selectAll = document.getElementById('selectAll');
     const checkboxes = document.querySelectorAll('.record-checkbox');
-    // 如果从悬浮栏调用，强制全选
     if (!selectAll.checked) {
         selectAll.checked = true;
     }
@@ -183,11 +228,16 @@ export function clearSelectionUI() {
     updateSelectedStatistics();
 }
 
-
 /**
  * 显示未选择月份的空状态
  */
 export function showEmptyMonth() {
     const tbody = document.getElementById('tableBody');
-    tbody.innerHTML = '<tr><td colspan="11" class="no-data">请先选择月份查看账单数据</td></tr>';
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 11;
+    cell.className = 'no-data';
+    cell.textContent = '请先选择月份查看账单数据';
+    row.appendChild(cell);
+    tbody.replaceChildren(row);
 }

@@ -1,70 +1,99 @@
-﻿package handlers
+package handlers
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
-	"time"
 
+	"ginMeterBox/dto"
 	"ginMeterBox/models"
 	"ginMeterBox/pkg/response"
+	"ginMeterBox/services"
 
 	"github.com/gin-gonic/gin"
 	"github.com/xuri/excelize/v2"
 )
 
-// BatchImport 批量导入记录
+// BatchImport 批量导入记录。
 func (h *BillingHandler) BatchImport(c *gin.Context) {
-	var records []models.BillingRecord
-	if err := c.ShouldBindJSON(&records); err != nil {
-		response.BadRequest(c, "无效的JSON格式: "+err.Error())
+	var requests []dto.BillingRecordRequest
+	if err := c.ShouldBindJSON(&requests); err != nil {
+		response.BadRequest(c, "请求格式无效")
 		return
 	}
-	if len(records) == 0 {
-		response.BadRequest(c, "没有要导入的记录")
+	if len(requests) == 0 || len(requests) > dto.MaxBatchSize {
+		response.BadRequest(c, fmt.Sprintf("导入记录数量必须在 1 到 %d 之间", dto.MaxBatchSize))
 		return
 	}
-	if err := h.repo.BatchImport(records); err != nil {
-		response.ServerError(c, "批量导入失败: "+err.Error())
+
+	records := make([]models.BillingRecord, len(requests))
+	for i, request := range requests {
+		if err := request.Validate(); err != nil {
+			response.BadRequest(c, fmt.Sprintf("第 %d 条记录无效：%s", i+1, err.Error()))
+			return
+		}
+		records[i] = request.ToRecord()
+	}
+	if err := h.service.BatchImport(records); err != nil {
+		response.ServerError(c, "批量导入失败")
 		return
 	}
 	response.OKData(c, gin.H{"message": "成功导入记录", "count": len(records)})
 }
 
-// ExportToJSON 导出所有记录为JSON文件
+// ExportToJSON 导出所有记录；文件名和目录均由服务器固定生成。
 func (h *BillingHandler) ExportToJSON(c *gin.Context) {
-	filename := c.Query("filename")
-	if filename == "" {
-		filename = "exports/billing_export.json"
-	}
-	if err := h.repo.ExportToJSON(filename); err != nil {
-		response.ServerError(c, "导出失败: "+err.Error())
+	basename, filename, err := h.fileStore.NewExportFile(".json")
+	if err != nil {
+		response.ServerError(c, "创建导出文件失败")
 		return
 	}
-	response.OKData(c, gin.H{"message": "导出成功", "file": filename})
+	if err := h.service.ExportToJSON(filename); err != nil {
+		response.ServerError(c, "导出失败")
+		return
+	}
+	response.OKData(c, gin.H{
+		"message":     "导出成功",
+		"downloadUrl": h.fileStore.ExportDownloadURL(basename),
+		"openUrl":     h.fileStore.ExportDownloadURL(basename),
+	})
 }
 
-// ExportToExcel 导出选中记录为Excel
-func (h *BillingHandler) ExportToExcel(c *gin.Context) {
-	var req struct {
-		IDs []int `json:"ids"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "无效的请求格式: "+err.Error())
+// DownloadExport 仅下载 exportDir 中由服务端生成的 JSON 或 Excel 文件。
+func (h *BillingHandler) DownloadExport(c *gin.Context) {
+	path, err := h.fileStore.ResolveExportDownload(c.Query("file"))
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidGeneratedFile) {
+			response.BadRequest(c, "文件标识无效")
+			return
+		}
+		if errors.Is(err, services.ErrGeneratedFileNotFound) {
+			response.NotFound(c, "文件不存在")
+			return
+		}
+		response.ServerError(c, "读取文件失败")
 		return
 	}
-	if len(req.IDs) == 0 {
-		response.BadRequest(c, "请选择要导出的记录")
+	c.Header("Content-Disposition", "attachment")
+	http.ServeFile(c.Writer, c.Request, path)
+}
+
+// ExportToExcel 导出选中记录为 Excel。
+func (h *BillingHandler) ExportToExcel(c *gin.Context) {
+	var req dto.BatchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请求格式无效")
+		return
+	}
+	if err := req.Validate(); err != nil {
+		response.BadRequest(c, err.Error())
 		return
 	}
 
-	var records []models.BillingRecord
-	for _, id := range req.IDs {
-		if record, err := h.repo.GetByID(id); err == nil {
-			records = append(records, *record)
-		}
-	}
-	if len(records) == 0 {
-		response.NotFound(c, "未找到要导出的记录")
+	records := h.service.GetByIDs(req.IDs)
+	if len(records) != len(req.IDs) {
+		response.NotFound(c, "存在未找到的记录")
 		return
 	}
 
@@ -73,7 +102,7 @@ func (h *BillingHandler) ExportToExcel(c *gin.Context) {
 	sheetName := "账单记录"
 	index, err := f.NewSheet(sheetName)
 	if err != nil {
-		response.ServerError(c, "创建Excel工作表失败: "+err.Error())
+		response.ServerError(c, "创建 Excel 工作表失败")
 		return
 	}
 
@@ -84,7 +113,7 @@ func (h *BillingHandler) ExportToExcel(c *gin.Context) {
 		"管理费", "额外费用", "总费用", "创建时间", "更新时间",
 	}
 	for i, header := range headers {
-		f.SetCellValue(sheetName, fmt.Sprintf("%s1", string(rune('A'+i))), header)
+		f.SetCellValue(sheetName, fmt.Sprintf("%s1", string(rune('A'+i))), excelSafeText(header))
 	}
 	headerStyle, _ := f.NewStyle(&excelize.Style{
 		Font:      &excelize.Font{Bold: true, Size: 12, Color: "FFFFFF"},
@@ -106,30 +135,35 @@ func (h *BillingHandler) ExportToExcel(c *gin.Context) {
 	f.SetActiveSheet(index)
 	f.DeleteSheet("Sheet1")
 
-	filename := fmt.Sprintf("exports/billing_export_%s.xlsx", time.Now().Format("20060102150405"))
+	basename, filename, err := h.fileStore.NewExportFile(".xlsx")
+	if err != nil {
+		response.ServerError(c, "创建导出文件失败")
+		return
+	}
 	if err := f.SaveAs(filename); err != nil {
-		response.ServerError(c, "保存Excel文件失败: "+err.Error())
+		response.ServerError(c, "保存 Excel 文件失败")
 		return
 	}
 	response.OKData(c, gin.H{
-		"message": fmt.Sprintf("成功导出 %d 条记录", len(records)),
-		"file":    filename,
-		"count":   len(records),
+		"message":     fmt.Sprintf("成功导出 %d 条记录", len(records)),
+		"count":       len(records),
+		"downloadUrl": h.fileStore.ExportDownloadURL(basename),
+		"openUrl":     h.fileStore.ExportDownloadURL(basename),
 	})
 }
 
 func writeExcelRow(f *excelize.File, sheet string, row int, r models.BillingRecord) {
 	extraFeesText := ""
 	if len(r.ExtraFees) > 0 {
-		var fees []string
+		fees := make([]string, 0, len(r.ExtraFees))
 		for _, fee := range r.ExtraFees {
 			fees = append(fees, fmt.Sprintf("%s:¥%.2f", fee.Name, fee.Amount))
 		}
 		extraFeesText = strings.Join(fees, "; ")
 	}
 	f.SetCellValue(sheet, fmt.Sprintf("A%d", row), r.ID)
-	f.SetCellValue(sheet, fmt.Sprintf("B%d", row), r.RoomNumber)
-	f.SetCellValue(sheet, fmt.Sprintf("C%d", row), r.BillingMonth)
+	f.SetCellValue(sheet, fmt.Sprintf("B%d", row), excelSafeText(r.RoomNumber))
+	f.SetCellValue(sheet, fmt.Sprintf("C%d", row), excelSafeText(r.BillingMonth))
 	f.SetCellValue(sheet, fmt.Sprintf("D%d", row), r.PreviousWater)
 	f.SetCellValue(sheet, fmt.Sprintf("E%d", row), r.CurrentWater)
 	f.SetCellValue(sheet, fmt.Sprintf("F%d", row), r.WaterAdjustment)
@@ -143,8 +177,16 @@ func writeExcelRow(f *excelize.File, sheet string, row int, r models.BillingReco
 	f.SetCellValue(sheet, fmt.Sprintf("N%d", row), r.ElectricPrice)
 	f.SetCellValue(sheet, fmt.Sprintf("O%d", row), r.TotalElectricCost)
 	f.SetCellValue(sheet, fmt.Sprintf("P%d", row), r.ManagementFee)
-	f.SetCellValue(sheet, fmt.Sprintf("Q%d", row), extraFeesText)
+	f.SetCellValue(sheet, fmt.Sprintf("Q%d", row), excelSafeText(extraFeesText))
 	f.SetCellValue(sheet, fmt.Sprintf("R%d", row), r.TotalCost)
-	f.SetCellValue(sheet, fmt.Sprintf("S%d", row), r.CreatedAt.Format("2006-01-02 15:04:05"))
-	f.SetCellValue(sheet, fmt.Sprintf("T%d", row), r.UpdatedAt.Format("2006-01-02 15:04:05"))
+	f.SetCellValue(sheet, fmt.Sprintf("S%d", row), excelSafeText(r.CreatedAt.Format("2006-01-02 15:04:05")))
+	f.SetCellValue(sheet, fmt.Sprintf("T%d", row), excelSafeText(r.UpdatedAt.Format("2006-01-02 15:04:05")))
+}
+
+func excelSafeText(value string) string {
+	trimmed := strings.TrimLeft(value, " \t\r\n")
+	if trimmed != "" && strings.ContainsRune("=+-@", rune(trimmed[0])) {
+		return "'" + value
+	}
+	return value
 }

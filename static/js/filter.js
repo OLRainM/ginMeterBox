@@ -81,18 +81,23 @@ async function updateDiffPanel(month, records) {
     const totalWaterUsage = currentMeter.waterReading - prevMeter.waterReading;
     const totalElectricUsage = currentMeter.electricReading - prevMeter.electricReading;
 
-    // 各户用量之和（表显用量，不含补差，排除总表）
+    // 住户用量之和只统计其余住户，明确排除独立的“总表”记录。
     const userRecords = records.filter(r => r.roomNumber !== '总表');
+    const householdCount = userRecords.length;
+    if (householdCount === 0) {
+        panel.style.display = 'none';
+        return;
+    }
     const sumUserWater = userRecords.reduce((s, r) => s + (r.currentWater - r.previousWater), 0);
     const sumUserElectric = userRecords.reduce((s, r) => s + (r.currentElectric - r.previousElectric), 0);
 
-    // 差值
+    // 差值 = 总表用量 - 27户（当前月份实际住户）分表用量之和。
     const waterDiff = totalWaterUsage - sumUserWater;
     const electricDiff = totalElectricUsage - sumUserElectric;
 
-    // 补差建议（÷27）
-    const waterSuggest = waterDiff / 27;
-    const electricSuggest = electricDiff / 27;
+    // 每户建议补差 = 差值 ÷ 当月实际住户数。
+    const waterSuggest = waterDiff / householdCount;
+    const electricSuggest = electricDiff / householdCount;
 
     // 更新面板
     document.getElementById('totalMeterWater').textContent = totalWaterUsage.toFixed(1);
@@ -103,6 +108,7 @@ async function updateDiffPanel(month, records) {
     document.getElementById('sumUserElectric').textContent = sumUserElectric.toFixed(1);
     document.getElementById('electricDiff').textContent = electricDiff.toFixed(1);
     document.getElementById('electricSuggest').textContent = electricSuggest.toFixed(2);
+    document.getElementById('householdCount').textContent = householdCount;
 
     panel.style.display = 'block';
 }

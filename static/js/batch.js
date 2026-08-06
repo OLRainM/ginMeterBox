@@ -44,23 +44,28 @@ export async function handleExportToExcel() {
     
     const result = await exportToExcel(ids);
     
-    if (result) {
-        showNotification(`成功导出 ${result.count} 条记录到Excel`, 'success');
+    if (result?.success) {
+        showNotification(`成功导出 ${result.data.count} 条记录到Excel`, 'success');
         
-        // 提供下载提示
-        const filename = result.file;
-        const downloadLink = `${window.location.origin}/${filename}`;
-        
-        // 创建临时下载链接
+        const downloadUrl = result.data.downloadUrl;
+        if (!downloadUrl || typeof downloadUrl !== 'string') {
+            showNotification('服务器未返回有效下载地址', 'error');
+            return;
+        }
+
+        const target = new URL(downloadUrl, window.location.origin);
+        if (target.origin !== window.location.origin || !target.pathname.startsWith('/api/v1/billing/export/download')) {
+            showNotification('服务器返回的下载地址无效', 'error');
+            return;
+        }
+
         const a = document.createElement('a');
-        a.href = downloadLink;
-        a.download = filename.split('/').pop();
+        a.href = target.href;
+        a.download = '';
         document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
-        
-        // 显示成功消息
-        showNotification(`Excel文件已生成，正在下载...`, 'success');
+        a.remove();
+        showNotification('Excel文件已生成，正在下载...', 'success');
     }
 }
 

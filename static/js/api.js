@@ -6,30 +6,62 @@
 import { API_BASE_URL } from './config.js';
 import { showNotification } from './utils.js';
 
+function buildUrl(path, params) {
+    const query = new URLSearchParams(params);
+    const queryString = query.toString();
+    return `${API_BASE_URL}${path}${queryString ? `?${queryString}` : ''}`;
+}
+
+async function request(path, { params, ...options } = {}, errorMessage = '请求失败') {
+    try {
+        const response = await fetch(buildUrl(path, params), {
+            credentials: 'same-origin',
+            ...options
+        });
+        let result;
+
+        try {
+            result = await response.json();
+        } catch (error) {
+            throw new Error('服务器返回了无效的 JSON 数据');
+        }
+
+        if (response.status === 401) {
+            showNotification('未登录或会话已过期', 'error');
+            window.dispatchEvent(new CustomEvent('auth-required'));
+            return null;
+        }
+        if (!response.ok) {
+            throw new Error(result?.error || `请求失败 (${response.status})`);
+        }
+
+        return result;
+    } catch (error) {
+        console.error(`${errorMessage}:`, error);
+        showNotification(errorMessage, 'error');
+        return null;
+    }
+}
+
+function jsonOptions(method, body) {
+    return {
+        method,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    };
+}
+
 /**
  * 加载所有账单记录
  * @param {string|null} sortOrder - 排序方式
  * @returns {Promise<Array>} 账单记录数组
  */
 export async function fetchRecords(sortOrder = null) {
-    try {
-        let url = `${API_BASE_URL}/billing`;
-        if (sortOrder) {
-            url += `?sortBy=room&order=${sortOrder}`;
-        }
-
-        const response = await fetch(url);
-        const result = await response.json();
-
-        if (result.success) {
-            return result.data || [];
-        }
-        return [];
-    } catch (error) {
-        console.error('加载数据失败:', error);
-        showNotification('加载数据失败', 'error');
-        return [];
-    }
+    const params = sortOrder ? { sortBy: 'room', order: sortOrder } : undefined;
+    const result = await request('/billing', { params }, '加载数据失败');
+    return result?.success ? result.data || [] : [];
 }
 
 /**
@@ -38,19 +70,8 @@ export async function fetchRecords(sortOrder = null) {
  * @returns {Promise<Object|null>} 账单记录对象
  */
 export async function fetchRecordById(id) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing/${id}`);
-        const result = await response.json();
-
-        if (result.success) {
-            return result.data;
-        }
-        return null;
-    } catch (error) {
-        console.error('获取记录失败:', error);
-        showNotification('获取记录失败', 'error');
-        return null;
-    }
+    const result = await request(`/billing/${id}`, {}, '获取记录失败');
+    return result?.success ? result.data : null;
 }
 
 /**
@@ -59,29 +80,17 @@ export async function fetchRecordById(id) {
  * @returns {Promise<boolean>} 是否成功
  */
 export async function createRecord(data) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
+    const result = await request('/billing', jsonOptions('POST', data), '保存记录失败');
 
-        const result = await response.json();
-
-        if (result.success) {
-            showNotification('添加成功', 'success');
-            return true;
-        } else {
-            showNotification('操作失败: ' + result.error, 'error');
-            return false;
-        }
-    } catch (error) {
-        console.error('保存记录失败:', error);
-        showNotification('保存记录失败', 'error');
-        return false;
+    if (result?.success) {
+        showNotification('添加成功', 'success');
+        return true;
     }
+
+    if (result) {
+        showNotification('操作失败: ' + result.error, 'error');
+    }
+    return false;
 }
 
 /**
@@ -91,29 +100,17 @@ export async function createRecord(data) {
  * @returns {Promise<boolean>} 是否成功
  */
 export async function updateRecord(id, data) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
+    const result = await request(`/billing/${id}`, jsonOptions('PUT', data), '保存记录失败');
 
-        const result = await response.json();
-
-        if (result.success) {
-            showNotification('更新成功', 'success');
-            return true;
-        } else {
-            showNotification('操作失败: ' + result.error, 'error');
-            return false;
-        }
-    } catch (error) {
-        console.error('保存记录失败:', error);
-        showNotification('保存记录失败', 'error');
-        return false;
+    if (result?.success) {
+        showNotification('更新成功', 'success');
+        return true;
     }
+
+    if (result) {
+        showNotification('操作失败: ' + result.error, 'error');
+    }
+    return false;
 }
 
 /**
@@ -122,24 +119,17 @@ export async function updateRecord(id, data) {
  * @returns {Promise<boolean>} 是否成功
  */
 export async function deleteRecord(id) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing/${id}`, {
-            method: 'DELETE'
-        });
-        const result = await response.json();
+    const result = await request(`/billing/${id}`, { method: 'DELETE' }, '删除记录失败');
 
-        if (result.success) {
-            showNotification('删除成功', 'success');
-            return true;
-        } else {
-            showNotification('删除失败: ' + result.error, 'error');
-            return false;
-        }
-    } catch (error) {
-        console.error('删除记录失败:', error);
-        showNotification('删除记录失败', 'error');
-        return false;
+    if (result?.success) {
+        showNotification('删除成功', 'success');
+        return true;
     }
+
+    if (result) {
+        showNotification('删除失败: ' + result.error, 'error');
+    }
+    return false;
 }
 
 /**
@@ -148,29 +138,17 @@ export async function deleteRecord(id) {
  * @returns {Promise<Object|null>} 删除结果
  */
 export async function batchDeleteRecords(ids) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing/batch-delete`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ ids })
-        });
+    const result = await request('/billing/batch-delete', jsonOptions('POST', { ids }), '批量删除失败');
 
-        const result = await response.json();
-
-        if (result.success) {
-            showNotification(`成功删除 ${result.count} 条记录`, 'success');
-            return result;
-        } else {
-            showNotification('批量删除失败: ' + result.error, 'error');
-            return null;
-        }
-    } catch (error) {
-        console.error('批量删除失败:', error);
-        showNotification('批量删除失败', 'error');
-        return null;
+    if (result?.success) {
+        showNotification(`成功删除 ${result.data.count} 条记录`, 'success');
+        return result;
     }
+
+    if (result) {
+        showNotification('批量删除失败: ' + result.error, 'error');
+    }
+    return null;
 }
 
 /**
@@ -179,28 +157,16 @@ export async function batchDeleteRecords(ids) {
  * @returns {Promise<Object|null>} 导出结果
  */
 export async function exportToExcel(ids) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing/export-excel`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ ids })
-        });
+    const result = await request('/billing/export-excel', jsonOptions('POST', { ids }), '导出Excel失败');
 
-        const result = await response.json();
-
-        if (result.success) {
-            return result;
-        } else {
-            showNotification('导出Excel失败: ' + result.error, 'error');
-            return null;
-        }
-    } catch (error) {
-        console.error('导出Excel失败:', error);
-        showNotification('导出Excel失败', 'error');
-        return null;
+    if (result?.success) {
+        return result;
     }
+
+    if (result) {
+        showNotification('导出Excel失败: ' + result.error, 'error');
+    }
+    return null;
 }
 
 /**
@@ -211,30 +177,22 @@ export async function exportToExcel(ids) {
  * @returns {Promise<Object|null>} 操作结果
  */
 export async function batchSetExtraFees(ids, extraFees, mode) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing/batch-extra-fee`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ ids, extraFees, mode })
-        });
+    const result = await request(
+        '/billing/batch-extra-fee',
+        jsonOptions('POST', { ids, extraFees, mode }),
+        '批量设置额外费用失败'
+    );
 
-        const result = await response.json();
-
-        if (result.success) {
-            const modeText = mode === 'append' ? '追加' : '替换';
-            showNotification(`成功为${result.count}条记录${modeText}额外费用！`, 'success');
-            return result;
-        } else {
-            showNotification('批量设置失败: ' + result.error, 'error');
-            return null;
-        }
-    } catch (error) {
-        console.error('批量设置额外费用失败:', error);
-        showNotification('批量设置额外费用失败', 'error');
-        return null;
+    if (result?.success) {
+        const modeText = mode === 'append' ? '追加' : '替换';
+        showNotification(`成功为${result.data.count}条记录${modeText}额外费用！`, 'success');
+        return result;
     }
+
+    if (result) {
+        showNotification('批量设置失败: ' + result.error, 'error');
+    }
+    return null;
 }
 
 /**
@@ -243,21 +201,20 @@ export async function batchSetExtraFees(ids, extraFees, mode) {
  * @returns {Promise<Object|null>} 记录对象
  */
 export async function fetchLatestRecord(roomNumber) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing/latest/${roomNumber}`);
-        const result = await response.json();
+    const result = await request(
+        `/billing/latest/${encodeURIComponent(roomNumber)}`,
+        {},
+        '获取数据失败'
+    );
 
-        if (result.success) {
-            return result.data;
-        } else {
-            showNotification('未找到该住户的历史记录', 'error');
-            return null;
-        }
-    } catch (error) {
-        console.error('获取数据失败:', error);
-        showNotification('获取数据失败', 'error');
-        return null;
+    if (result?.success) {
+        return result.data;
     }
+
+    if (result) {
+        showNotification('未找到该住户的历史记录', 'error');
+    }
+    return null;
 }
 
 /**
@@ -267,29 +224,17 @@ export async function fetchLatestRecord(roomNumber) {
  * @returns {Promise<boolean>} 是否成功
  */
 export async function continueRecord(roomNumber, newMonth) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing/continue`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ roomNumber, newMonth })
-        });
+    const result = await request('/billing/continue', jsonOptions('POST', { roomNumber, newMonth }), '自动延续失败');
 
-        const result = await response.json();
-
-        if (result.success) {
-            showNotification(result.message || '自动延续成功！', 'success');
-            return true;
-        } else {
-            showNotification('自动延续失败: ' + result.error, 'error');
-            return false;
-        }
-    } catch (error) {
-        console.error('自动延续失败:', error);
-        showNotification('自动延续失败', 'error');
-        return false;
+    if (result?.success) {
+        showNotification(result.message || result.data?.message || '自动延续成功！', 'success');
+        return true;
     }
+
+    if (result) {
+        showNotification('自动延续失败: ' + result.error, 'error');
+    }
+    return false;
 }
 
 /**
@@ -299,29 +244,21 @@ export async function continueRecord(roomNumber, newMonth) {
  * @returns {Promise<Object|null>} 操作结果
  */
 export async function batchContinueRecords(roomNumbers, newMonth) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing/batch-continue`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ roomNumbers, newMonth })
-        });
+    const result = await request(
+        '/billing/batch-continue',
+        jsonOptions('POST', { roomNumbers, newMonth }),
+        '批量自动延续失败'
+    );
 
-        const result = await response.json();
-
-        if (result.success) {
-            showNotification(`成功为 ${result.count} 个住户创建新记录！`, 'success');
-            return result;
-        } else {
-            showNotification('批量自动延续失败: ' + result.error, 'error');
-            return null;
-        }
-    } catch (error) {
-        console.error('批量自动延续失败:', error);
-        showNotification('批量自动延续失败', 'error');
-        return null;
+    if (result?.success) {
+        showNotification(`成功为 ${result.data.count} 个住户创建新记录！`, 'success');
+        return result;
     }
+
+    if (result) {
+        showNotification('批量自动延续失败: ' + result.error, 'error');
+    }
+    return null;
 }
 
 /**
@@ -332,39 +269,26 @@ export async function batchContinueRecords(roomNumbers, newMonth) {
  * @returns {Promise<Object|null>} 操作结果
  */
 export async function batchSetAdjustment(ids, waterAdjustment, electricAdjustment) {
-    try {
-        const body = { ids };
+    const body = { ids };
 
-        // 只添加非null的值
-        if (waterAdjustment !== null && waterAdjustment !== undefined) {
-            body.waterAdjustment = waterAdjustment;
-        }
-        if (electricAdjustment !== null && electricAdjustment !== undefined) {
-            body.electricAdjustment = electricAdjustment;
-        }
-
-        const response = await fetch(`${API_BASE_URL}/billing/batch-adjustment`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            showNotification(`✅ ${result.message}`, 'success');
-            return result;
-        } else {
-            showNotification('批量设置补差失败: ' + result.error, 'error');
-            return null;
-        }
-    } catch (error) {
-        console.error('批量设置补差失败:', error);
-        showNotification('批量设置补差失败', 'error');
-        return null;
+    if (waterAdjustment !== null && waterAdjustment !== undefined) {
+        body.waterAdjustment = waterAdjustment;
     }
+    if (electricAdjustment !== null && electricAdjustment !== undefined) {
+        body.electricAdjustment = electricAdjustment;
+    }
+
+    const result = await request('/billing/batch-adjustment', jsonOptions('POST', body), '批量设置补差失败');
+
+    if (result?.success) {
+        showNotification(`✅ ${result.message || result.data?.message}`, 'success');
+        return result;
+    }
+
+    if (result) {
+        showNotification('批量设置补差失败: ' + result.error, 'error');
+    }
+    return null;
 }
 
 /**
@@ -374,37 +298,27 @@ export async function batchSetAdjustment(ids, waterAdjustment, electricAdjustmen
  * @returns {Promise<Object|null>} 匹配结果
  */
 export async function smartWaterMatch(ids, waterReadings) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing/smart-water-match`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ ids, waterReadings })
-        });
+    const result = await request(
+        '/billing/smart-water-match',
+        jsonOptions('POST', { ids, waterReadings }),
+        '智能匹配失败'
+    );
 
-        const result = await response.json();
+    if (result?.success) {
+        showNotification(`✅ ${result.message || result.data?.message}`, 'success');
 
-        if (result.success) {
-            showNotification(`✅ ${result.message}`, 'success');
-
-            // 显示匹配详情
-            if (result.matches && result.matches.length > 0) {
-                console.log('匹配结果:', result.matches);
-            }
-
-            return result;
-        } else {
-            showNotification('智能匹配失败: ' + result.error, 'error');
-            return null;
+        if (result.data?.matches && result.data.matches.length > 0) {
+            console.log('匹配结果:', result.data.matches);
         }
-    } catch (error) {
-        console.error('智能匹配失败:', error);
-        showNotification('智能匹配失败', 'error');
-        return null;
-    }
-}
 
+        return result;
+    }
+
+    if (result) {
+        showNotification('智能匹配失败: ' + result.error, 'error');
+    }
+    return null;
+}
 
 /**
  * 获取指定月份的总表记录
@@ -412,12 +326,24 @@ export async function smartWaterMatch(ids, waterReadings) {
  * @returns {Promise<Object|null>} 总表记录
  */
 export async function fetchTotalMeter(month) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/total-meter/month?month=${month}`);
-        const result = await response.json();
-        if (result.success) return result.data;
-        return null;
-    } catch (error) {
-        return null;
-    }
+    const result = await request('/total-meter/month', { params: { month } }, '获取总表记录失败');
+    return result?.success ? result.data : null;
+}
+
+/**
+ * 生成账单报表
+ * @param {Object} params - 报表查询参数
+ * @returns {Promise<Object|null>} 报表结果
+ */
+export async function fetchGeneratedReport(params) {
+    return request('/billing/report/generate', { params }, '生成报表失败');
+}
+
+/**
+ * 生成单个账单卡片
+ * @param {number} id - 记录ID
+ * @returns {Promise<Object|null>} 卡片结果
+ */
+export async function fetchGeneratedCard(id) {
+    return request(`/billing/card/${id}`, {}, '生成卡片失败');
 }

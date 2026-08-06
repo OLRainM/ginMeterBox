@@ -2,56 +2,59 @@
  * 报表生成模块
  */
 
-import { API_BASE_URL, state } from './config.js';
+import { state } from './config.js';
+import { fetchGeneratedReport, fetchGeneratedCard } from './api.js';
 import { showNotification, getSelectedIds } from './utils.js';
+
+function openGeneratedFile(downloadUrl) {
+    if (!downloadUrl || typeof downloadUrl !== 'string') {
+        showNotification('服务器未返回有效下载地址', 'error');
+        return;
+    }
+
+    const target = new URL(downloadUrl, window.location.origin);
+    if (target.origin !== window.location.origin || !target.pathname.startsWith('/api/v1/billing/')) {
+        showNotification('服务器返回的下载地址无效', 'error');
+        return;
+    }
+
+    window.open(target.href, '_blank', 'noopener');
+}
 
 /**
  * 生成报表（所有或当前筛选）
  */
 export async function generateReport() {
     const month = document.getElementById('monthFilter').value;
-    
+
     if (!month && state.allRecords.length === 0) {
         showNotification('没有数据可生成报表', 'error');
         return;
     }
-    
-    try {
-        let url = `${API_BASE_URL}/billing/report/generate`;
-        const params = [];
-        
-        if (month) {
-            params.push(`month=${month}`);
-        } else {
-            // 使用所有记录的月份（取第一条记录的月份）
-            const firstMonth = state.allRecords[0]?.billingMonth;
-            if (firstMonth) {
-                params.push(`month=${firstMonth}`);
-            }
+
+    const params = new URLSearchParams();
+
+    if (month) {
+        params.set('month', month);
+    } else {
+        const firstMonth = state.allRecords[0]?.billingMonth;
+        if (firstMonth) {
+            params.set('month', firstMonth);
         }
-        
-        // 添加排序参数
-        if (state.currentSortOrder) {
-            params.push(`sortBy=room&order=${state.currentSortOrder}`);
-        }
-        
-        if (params.length > 0) {
-            url += '?' + params.join('&');
-        }
-        
-        const response = await fetch(url);
-        const result = await response.json();
-        
-        if (result.success) {
-            showNotification('报表生成成功！正在下载...', 'success');
-            // 下载图片
-            window.open(`http://localhost:8080/${result.data.filename}`, '_blank');
-        } else {
-            showNotification('生成失败: ' + result.error, 'error');
-        }
-    } catch (error) {
-        console.error('生成报表失败:', error);
-        showNotification('生成报表失败', 'error');
+    }
+
+    if (state.currentSortOrder) {
+        params.set('sortBy', 'room');
+        params.set('order', state.currentSortOrder);
+    }
+
+    const result = await fetchGeneratedReport(params);
+
+    if (result?.success) {
+        showNotification('报表生成成功！正在下载...', 'success');
+        openGeneratedFile(result.data.downloadUrl);
+    } else if (result) {
+        showNotification('生成失败: ' + result.error, 'error');
     }
 }
 
@@ -60,33 +63,26 @@ export async function generateReport() {
  */
 export async function generateSelectedReport() {
     const ids = getSelectedIds();
-    
+
     if (ids.length === 0) {
         showNotification('请先选择要生成报表的记录', 'error');
         return;
     }
-    
-    try {
-        let url = `${API_BASE_URL}/billing/report/generate?ids=${ids.join(',')}`;
-        
-        // 添加排序参数
-        if (state.currentSortOrder) {
-            url += `&sortBy=room&order=${state.currentSortOrder}`;
-        }
-        
-        const response = await fetch(url);
-        const result = await response.json();
-        
-        if (result.success) {
-            showNotification(`成功生成${result.data.count}条记录的报表！`, 'success');
-            // 下载图片
-            window.open(`http://localhost:8080/${result.data.filename}`, '_blank');
-        } else {
-            showNotification('生成失败: ' + result.error, 'error');
-        }
-    } catch (error) {
-        console.error('生成报表失败:', error);
-        showNotification('生成报表失败', 'error');
+
+    const params = new URLSearchParams({ ids: ids.join(',') });
+
+    if (state.currentSortOrder) {
+        params.set('sortBy', 'room');
+        params.set('order', state.currentSortOrder);
+    }
+
+    const result = await fetchGeneratedReport(params);
+
+    if (result?.success) {
+        showNotification(`成功生成${result.data.count}条记录的报表！`, 'success');
+        openGeneratedFile(result.data.downloadUrl);
+    } else if (result) {
+        showNotification('生成失败: ' + result.error, 'error');
     }
 }
 
@@ -95,19 +91,12 @@ export async function generateSelectedReport() {
  * @param {number} id - 记录ID
  */
 export async function generateSingleCard(id) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/billing/card/${id}`);
-        const result = await response.json();
-        
-        if (result.success) {
-            showNotification('卡片生成成功！', 'success');
-            // 下载图片
-            window.open(`http://localhost:8080/${result.data.filename}`, '_blank');
-        } else {
-            showNotification('生成失败: ' + result.error, 'error');
-        }
-    } catch (error) {
-        console.error('生成卡片失败:', error);
-        showNotification('生成卡片失败', 'error');
+    const result = await fetchGeneratedCard(id);
+
+    if (result?.success) {
+        showNotification('卡片生成成功！', 'success');
+        openGeneratedFile(result.data.downloadUrl);
+    } else if (result) {
+        showNotification('生成失败: ' + result.error, 'error');
     }
 }

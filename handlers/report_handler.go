@@ -1,12 +1,15 @@
-﻿package handlers
+package handlers
 
 import (
+	"errors"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 
 	"ginMeterBox/models"
 	"ginMeterBox/pkg/response"
+	"ginMeterBox/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,9 +32,9 @@ func (h *BillingHandler) GenerateReport(c *gin.Context) {
 				ids = append(ids, id)
 			}
 		}
-		records = h.repo.GetByIDs(ids)
+		records = h.service.GetByIDs(ids)
 	} else if month != "" {
-		records = h.repo.GetByMonth(month)
+		records = h.service.GetByMonth(month)
 	} else {
 		response.BadRequest(c, "请提供 ids 或 month 参数")
 		return
@@ -53,12 +56,15 @@ func (h *BillingHandler) GenerateReport(c *gin.Context) {
 
 	filename, err := h.imgGenerator.GenerateBillingReport(records, month)
 	if err != nil {
-		response.ServerError(c, "生成图片失败: "+err.Error())
+		response.ServerError(c, "生成图片失败")
 		return
 	}
 
 	response.OKData(c, gin.H{
-		"data": gin.H{"filename": filename, "count": len(records), "message": "报表生成成功"},
+		"count":       len(records),
+		"message":     "报表生成成功",
+		"downloadUrl": h.fileStore.ReportDownloadURL(filename),
+		"openUrl":     h.fileStore.ReportDownloadURL(filename),
 	})
 }
 
@@ -69,30 +75,39 @@ func (h *BillingHandler) GenerateCard(c *gin.Context) {
 		response.BadRequest(c, "Invalid ID")
 		return
 	}
-	record, err := h.repo.GetByID(id)
+	record, err := h.service.GetByID(id)
 	if err != nil {
 		response.NotFound(c, "Record not found")
 		return
 	}
 	filename, err := h.imgGenerator.GenerateSimpleCard(*record)
 	if err != nil {
-		response.ServerError(c, "生成卡片失败: "+err.Error())
+		response.ServerError(c, "生成卡片失败")
 		return
 	}
 	response.OKData(c, gin.H{
-		"data": gin.H{"filename": filename, "message": "卡片生成成功"},
+		"message":     "卡片生成成功",
+		"downloadUrl": h.fileStore.ReportDownloadURL(filename),
+		"openUrl":     h.fileStore.ReportDownloadURL(filename),
 	})
 }
 
-// DownloadImage 下载生成的图片
+// DownloadImage 仅下载 reportDir 中由服务端生成的 PNG 文件。
 func (h *BillingHandler) DownloadImage(c *gin.Context) {
 	filename := c.Query("file")
-	if filename == "" {
-		response.BadRequest(c, "文件名不能为空")
+	path, err := h.fileStore.ResolveReportDownload(filename)
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidGeneratedFile) {
+			response.BadRequest(c, "文件标识无效")
+			return
+		}
+		if errors.Is(err, services.ErrGeneratedFileNotFound) {
+			response.NotFound(c, "文件不存在")
+			return
+		}
+		response.ServerError(c, "读取文件失败")
 		return
 	}
-	if !strings.HasPrefix(filename, "reports/") {
-		filename = "reports/" + filename
-	}
-	c.File(filename)
+	c.Header("Content-Disposition", "inline")
+	http.ServeFile(c.Writer, c.Request, path)
 }

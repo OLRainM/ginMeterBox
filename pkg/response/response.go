@@ -29,15 +29,20 @@ func OKMsg(c *gin.Context, msg string) {
 	c.JSON(http.StatusOK, R{Success: true, Message: msg})
 }
 
-// OKData 成功响应（带数据和额外字段）
+// OKData 成功响应（带数据和可选消息）。
 func OKData(c *gin.Context, data gin.H) {
-	data["success"] = true
-	c.JSON(http.StatusOK, data)
+	message, _ := data["message"].(string)
+	c.JSON(http.StatusOK, R{Success: true, Data: data, Message: message})
 }
 
 // BadRequest 参数错误
 func BadRequest(c *gin.Context, err string) {
 	c.JSON(http.StatusBadRequest, R{Success: false, Error: err})
+}
+
+// Unauthorized 未认证
+func Unauthorized(c *gin.Context, err string) {
+	c.JSON(http.StatusUnauthorized, R{Success: false, Error: err})
 }
 
 // NotFound 资源不存在
