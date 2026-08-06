@@ -32,20 +32,20 @@ export async function generateReport() {
         return;
     }
 
-    const params = new URLSearchParams();
+    const params = {};
 
     if (month) {
-        params.set('month', month);
+        params.month = month;
     } else {
         const firstMonth = state.allRecords[0]?.billingMonth;
         if (firstMonth) {
-            params.set('month', firstMonth);
+            params.month = firstMonth;
         }
     }
 
     if (state.currentSortOrder) {
-        params.set('sortBy', 'room');
-        params.set('order', state.currentSortOrder);
+        params.sortBy = 'room';
+        params.order = state.currentSortOrder;
     }
 
     const result = await fetchGeneratedReport(params);
@@ -69,11 +69,16 @@ export async function generateSelectedReport() {
         return;
     }
 
-    const params = new URLSearchParams({ ids: ids.join(',') });
+    const selectedRecords = state.allRecords.filter(record => ids.includes(record.id));
+    const months = [...new Set(selectedRecords.map(record => record.billingMonth).filter(Boolean))];
+    const params = { ids };
+    if (months.length === 1) {
+        params.month = months[0];
+    }
 
     if (state.currentSortOrder) {
-        params.set('sortBy', 'room');
-        params.set('order', state.currentSortOrder);
+        params.sortBy = 'room';
+        params.order = state.currentSortOrder;
     }
 
     const result = await fetchGeneratedReport(params);

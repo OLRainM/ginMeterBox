@@ -48,7 +48,27 @@ func (h *BillingHandler) GenerateReport(c *gin.Context) {
 		})
 	}
 
-	filename, err := h.imgGenerator.GenerateBillingReport(records, request.Month)
+	reportMonth := request.Month
+	if reportMonth == "" {
+		months := make(map[string]struct{})
+		for _, record := range records {
+			if record.BillingMonth != "" {
+				months[record.BillingMonth] = struct{}{}
+			}
+		}
+		switch len(months) {
+		case 1:
+			for month := range months {
+				reportMonth = month
+			}
+		case 0:
+			reportMonth = "未指定月份"
+		default:
+			reportMonth = "多月份账单"
+		}
+	}
+
+	filename, err := h.imgGenerator.GenerateBillingReport(records, reportMonth)
 	if err != nil {
 		response.ServerError(c, "生成图片失败")
 		return
