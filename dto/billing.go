@@ -209,7 +209,7 @@ type ContinueRequest struct {
 }
 
 func (r ContinueRequest) Validate() error {
-	if err := ValidateRoomNumber(r.RoomNumber); err != nil {
+	if err := ValidateContinuationRoomNumber(r.RoomNumber); err != nil {
 		return err
 	}
 	return ValidateMonth(r.NewMonth)
@@ -225,7 +225,7 @@ func (r BatchContinueRequest) Validate() error {
 		return fmt.Errorf("房号数量必须在 1 到 %d 之间", maxBatchSize)
 	}
 	for _, roomNumber := range r.RoomNumbers {
-		if err := ValidateRoomNumber(roomNumber); err != nil {
+		if err := ValidateContinuationRoomNumber(roomNumber); err != nil {
 			return err
 		}
 	}
@@ -243,6 +243,16 @@ func ValidateRoomNumber(roomNumber string) error {
 	roomNumber = strings.TrimSpace(roomNumber)
 	if !roomPattern.MatchString(roomNumber) || len(roomNumber) > maxRoomNumberLength {
 		return fmt.Errorf("房号格式无效")
+	}
+	return nil
+}
+
+func ValidateContinuationRoomNumber(roomNumber string) error {
+	if err := ValidateRoomNumber(roomNumber); err != nil {
+		return err
+	}
+	if strings.TrimSpace(roomNumber) == "总表" {
+		return fmt.Errorf("总表为独立计量项，不能参与账单延续")
 	}
 	return nil
 }

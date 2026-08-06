@@ -38,7 +38,8 @@ async function request(path, { params, ...options } = {}, errorMessage = '请求
         return result;
     } catch (error) {
         console.error(`${errorMessage}:`, error);
-        showNotification(errorMessage, 'error');
+        const detail = error instanceof Error ? error.message : '';
+        showNotification(detail ? `${errorMessage}: ${detail}` : errorMessage, 'error');
         return null;
     }
 }

@@ -68,7 +68,11 @@ export function populateRoomSelectionList() {
     const container = document.getElementById('roomSelectionList');
     if (!container) return;
 
-    const rooms = [...new Set(state.allRecords.map(r => r.roomNumber))].sort();
+    const rooms = [...new Set(
+        state.allRecords
+            .filter(record => record.roomNumber !== '总表')
+            .map(record => record.roomNumber)
+    )].sort();
     const labels = rooms.map(room => {
         const label = document.createElement('label');
         label.className = 'room-checkbox-label';

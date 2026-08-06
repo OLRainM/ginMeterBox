@@ -64,6 +64,18 @@ func TestValidateIDs(t *testing.T) {
 	}
 }
 
+func TestContinueRequestsRejectMasterMeter(t *testing.T) {
+	if err := (ContinueRequest{RoomNumber: "总表", NewMonth: "2026-07"}).Validate(); err == nil {
+		t.Fatal("master meter must not be continued as a household bill")
+	}
+	if err := (BatchContinueRequest{RoomNumbers: []string{"101", "总表"}, NewMonth: "2026-07"}).Validate(); err == nil {
+		t.Fatal("batch continuation must reject master meter")
+	}
+	if err := (BatchContinueRequest{RoomNumbers: []string{"101", "103"}, NewMonth: "2026-07"}).Validate(); err != nil {
+		t.Fatalf("valid household continuation rejected: %v", err)
+	}
+}
+
 func TestBillingRecordRequestToRecordDropsDerivedFields(t *testing.T) {
 	record := validBillingRecordRequest().ToRecord()
 	if record.ID != 0 || !record.CreatedAt.IsZero() || !record.UpdatedAt.IsZero() {
