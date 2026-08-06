@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ginMeterBox - 水电费管理</title>
-    <link rel="stylesheet" href="/static/style.css?v=3.0.1">
+    <link rel="stylesheet" href="/static/style.css?v=3.2.0">
 </head>
 <body>
     <div id="loginOverlay" class="login-overlay" hidden>
@@ -47,19 +47,19 @@
                 </div>
 
                 <div class="actions">
-                    <button class="btn btn-primary" onclick="window.billingApp.showAddForm()">➕ 新增</button>
-                    <button class="btn btn-success" onclick="window.billingApp.showContinueForm()">🔄 延续</button>
-                    <button class="btn btn-info" onclick="window.location.href='/total-meter.html'">📊 总表</button>
-                    <button class="btn btn-secondary" onclick="window.billingApp.loadRecords()">🔃 刷新</button>
-                    <button class="btn btn-info" onclick="window.billingApp.showCalculator()">🧮 计算</button>
+                    <button class="btn btn-primary" onclick="window.billingApp.showAddForm()">新增账单</button>
+                    <button class="btn btn-success" onclick="window.billingApp.showContinueForm()">延续账单</button>
+                    <button class="btn btn-info" onclick="window.location.href='/total-meter.html'">总表管理</button>
+                    <button class="btn btn-secondary" onclick="window.billingApp.loadRecords()">刷新</button>
+                    <button class="btn btn-info" onclick="window.billingApp.showCalculator()">费用计算</button>
                 </div>
 
                 <div class="batch-section">
-                    <button class="btn btn-success" onclick="window.billingApp.showBatchExtraFeeModal()">💵 批量额外费用</button>
-                    <button class="btn btn-warning" onclick="window.billingApp.showBatchAdjustmentModal()">⚖️ 批量补差</button>
-                    <button class="btn btn-primary" onclick="window.billingApp.showSmartMatchModal()">🎯 智能匹配</button>
-                    <button class="btn btn-info" onclick="window.billingApp.exportToExcel()">📊 导出Excel</button>
-                    <button class="btn btn-danger" onclick="window.billingApp.batchDeleteRecords()">🗑️ 批量删除</button>
+                    <button class="btn btn-success" onclick="window.billingApp.showBatchExtraFeeModal()">批量费用</button>
+                    <button class="btn btn-warning" onclick="window.billingApp.showBatchAdjustmentModal()">批量补差</button>
+                    <button class="btn btn-primary" onclick="window.billingApp.showSmartMatchModal()">水表匹配</button>
+                    <button class="btn btn-info" onclick="window.billingApp.exportToExcel()">导出 Excel</button>
+                    <button class="btn btn-danger" onclick="window.billingApp.batchDeleteRecords()">批量删除</button>
                 </div>
             </div>
 
