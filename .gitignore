@@ -46,10 +46,6 @@ reports/*.png
 logs/*.log
 !logs/.gitkeep
 
-# Environment variables
-.env
-.env.local
-
 # Exported files
 exports/*.xlsx
 exports/*.json
@@ -63,8 +59,37 @@ coverage.html
 dist/
 build/
 
-# Config (may contain local paths)
+# Local runtime configuration (may contain password hashes or private origins)
 config.json
+config.local.json
+config.*.local.json
+*.local.json
+
+# Environment variables and credentials
+.env
+.env.*
+!.env.example
+!.env.sample
+secrets.json
+credentials.json
+*.secret
+
+# Private keys, certificates, and keystores
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.crt
+*.cer
+*.der
+
+# Local database sidecars and alternate formats
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
 
 # Old storage package (deprecated)
 /storage/

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 820" role="img" aria-labelledby="title desc">
+  <title id="title">Property management modular monolith architecture</title>
+  <desc id="desc">A Go Gin property management system that extends a billing core with property, payment, work order, and controlled AI concierge modules.</desc>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#1e293b" stroke-width=".5"/></pattern>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#64748b"/></marker>
+    <marker id="cyan" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#22d3ee"/></marker>
+    <marker id="green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#34d399"/></marker>
+    <marker id="orange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#fb923c"/></marker>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;display=swap');
+      text{font-family:'JetBrains Mono','SF Mono','Cascadia Code',monospace}.title{fill:#f8fafc;font-size:21px;font-weight:700}.subtitle{fill:#94a3b8;font-size:10px}.group{font-size:10px;font-weight:600}.name{fill:#f8fafc;font-size:12px;font-weight:600}.sub{fill:#94a3b8;font-size:9px}.tiny{fill:#cbd5e1;font-size:8px}.label{fill:#cbd5e1;font-size:8px;font-weight:500}
+    </style>
+  </defs>
+  <rect width="100%" height="100%" fill="#0f172a"/>
+  <rect width="100%" height="100%" fill="url(#grid)"/>
+  <text x="42" y="42" class="title">Property Management System — Modular Monolith</text>
+  <text x="42" y="62" class="subtitle">Extend the existing billing core. Keep one Go service and one database; move from SQLite to MySQL only when scale requires it.</text>
+
+  <rect x="30" y="100" width="170" height="520" rx="14" fill="none" stroke="#94a3b8" stroke-width="1" stroke-dasharray="8 4"/>
+  <text x="44" y="121" class="group" fill="#94a3b8">USERS</text>
+  <rect x="225" y="100" width="180" height="520" rx="14" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="8 4"/>
+  <text x="239" y="121" class="group" fill="#22d3ee">CLIENTS</text>
+  <rect x="430" y="100" width="230" height="520" rx="14" fill="none" stroke="#fb7185" stroke-width="1" stroke-dasharray="8 4"/>
+  <text x="444" y="121" class="group" fill="#fb7185">GIN APPLICATION BOUNDARY</text>
+  <rect x="685" y="100" width="410" height="520" rx="14" fill="none" stroke="#34d399" stroke-width="1" stroke-dasharray="8 4"/>
+  <text x="699" y="121" class="group" fill="#34d399">DOMAIN MODULES — SAME GO PROCESS</text>
+  <rect x="1120" y="100" width="290" height="520" rx="14" fill="none" stroke="#a78bfa" stroke-width="1" stroke-dasharray="8 4"/>
+  <text x="1134" y="121" class="group" fill="#a78bfa">DATA AND EXTERNAL SERVICES</text>
+
+  <g><rect x="52" y="180" width="126" height="62" rx="8" fill="#0f172a"/><rect x="52" y="180" width="126" height="62" rx="8" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/><text x="115" y="206" class="name" text-anchor="middle">Property Admin</text><text x="115" y="224" class="sub" text-anchor="middle">billing and work orders</text></g>
+  <g><rect x="52" y="305" width="126" height="62" rx="8" fill="#0f172a"/><rect x="52" y="305" width="126" height="62" rx="8" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/><text x="115" y="331" class="name" text-anchor="middle">Finance / Staff</text><text x="115" y="349" class="sub" text-anchor="middle">reconciliation</text></g>
+  <g><rect x="52" y="430" width="126" height="62" rx="8" fill="#0f172a"/><rect x="52" y="430" width="126" height="62" rx="8" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/><text x="115" y="456" class="name" text-anchor="middle">Resident</text><text x="115" y="474" class="sub" text-anchor="middle">bills and repairs</text></g>
+
+  <g><rect x="251" y="180" width="128" height="62" rx="8" fill="#0f172a"/><rect x="251" y="180" width="128" height="62" rx="8" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="315" y="206" class="name" text-anchor="middle">Admin Web</text><text x="315" y="224" class="sub" text-anchor="middle">evolve current UI</text></g>
+  <g><rect x="251" y="350" width="128" height="62" rx="8" fill="#0f172a"/><rect x="251" y="350" width="128" height="62" rx="8" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="315" y="376" class="name" text-anchor="middle">Resident Portal</text><text x="315" y="394" class="sub" text-anchor="middle">H5 / mini app later</text></g>
+  <g><rect x="251" y="510" width="128" height="62" rx="8" fill="#0f172a"/><rect x="251" y="510" width="128" height="62" rx="8" fill="rgba(8,51,68,.4)" stroke="#22d3ee" stroke-width="1.5"/><text x="315" y="536" class="name" text-anchor="middle">AI Chat Panel</text><text x="315" y="554" class="sub" text-anchor="middle">query and confirmation</text></g>
+
+  <g><rect x="457" y="175" width="176" height="74" rx="8" fill="#0f172a"/><rect x="457" y="175" width="176" height="74" rx="8" fill="rgba(136,19,55,.4)" stroke="#fb7185" stroke-width="1.5"/><text x="545" y="202" class="name" text-anchor="middle">Gin REST API</text><text x="545" y="220" class="sub" text-anchor="middle">validation and responses</text><text x="545" y="236" class="tiny" text-anchor="middle">handlers → services → repos</text></g>
+  <g><rect x="457" y="355" width="176" height="74" rx="8" fill="#0f172a"/><rect x="457" y="355" width="176" height="74" rx="8" fill="rgba(136,19,55,.4)" stroke="#fb7185" stroke-width="1.5"/><text x="545" y="382" class="name" text-anchor="middle">Access and Audit</text><text x="545" y="400" class="sub" text-anchor="middle">RBAC and operation logs</text><text x="545" y="416" class="tiny" text-anchor="middle">admin, finance, staff, resident</text></g>
+  <g><rect x="457" y="525" width="176" height="62" rx="8" fill="#0f172a"/><rect x="457" y="525" width="176" height="62" rx="8" fill="rgba(136,19,55,.4)" stroke="#fb7185" stroke-width="1.5"/><text x="545" y="551" class="name" text-anchor="middle">Report / Notification</text><text x="545" y="569" class="sub" text-anchor="middle">images, Excel, in-app notice</text></g>
+
+  <g><rect x="714" y="155" width="160" height="70" rx="8" fill="#0f172a"/><rect x="714" y="155" width="160" height="70" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/><text x="794" y="182" class="name" text-anchor="middle">Property</text><text x="794" y="201" class="sub" text-anchor="middle">site, building, room</text><text x="794" y="215" class="tiny" text-anchor="middle">resident and occupancy</text></g>
+  <g><rect x="905" y="155" width="160" height="70" rx="8" fill="#0f172a"/><rect x="905" y="155" width="160" height="70" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/><text x="985" y="182" class="name" text-anchor="middle">Billing and Meters</text><text x="985" y="201" class="sub" text-anchor="middle">existing bill core</text><text x="985" y="215" class="tiny" text-anchor="middle">master meter and reports</text></g>
+  <g><rect x="714" y="300" width="160" height="70" rx="8" fill="#0f172a"/><rect x="714" y="300" width="160" height="70" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/><text x="794" y="327" class="name" text-anchor="middle">Payment</text><text x="794" y="346" class="sub" text-anchor="middle">status and receipt</text><text x="794" y="360" class="tiny" text-anchor="middle">arrears and monthly summary</text></g>
+  <g><rect x="905" y="300" width="160" height="70" rx="8" fill="#0f172a"/><rect x="905" y="300" width="160" height="70" rx="8" fill="rgba(6,78,59,.4)" stroke="#34d399" stroke-width="1.5"/><text x="985" y="327" class="name" text-anchor="middle">Work Orders</text><text x="985" y="346" class="sub" text-anchor="middle">repair and assignment</text><text x="985" y="360" class="tiny" text-anchor="middle">status, notice, history</text></g>
+  <g><rect x="714" y="455" width="351" height="102" rx="8" fill="#0f172a"/><rect x="714" y="455" width="351" height="102" rx="8" fill="rgba(120,53,15,.3)" stroke="#fbbf24" stroke-width="1.5"/><text x="890" y="484" class="name" text-anchor="middle">AI Concierge Orchestrator — Later Phase</text><text x="890" y="504" class="sub" text-anchor="middle">knowledge Q&amp;A, bill/arrear/work-order lookup, reply drafts</text><text x="890" y="524" class="tiny" text-anchor="middle">allowlisted tools + RBAC + minimal context + audit trail</text><text x="890" y="542" class="tiny" text-anchor="middle">model never connects to database; writes require human confirmation</text></g>
+
+  <g><rect x="1145" y="155" width="240" height="85" rx="8" fill="#0f172a"/><rect x="1145" y="155" width="240" height="85" rx="8" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1.5"/><text x="1265" y="183" class="name" text-anchor="middle">Core Relational Database</text><text x="1265" y="203" class="sub" text-anchor="middle">NOW: SQLite + WAL, one service</text><text x="1265" y="220" class="tiny" text-anchor="middle">LATER: MySQL for multi-user / multi-instance</text></g>
+  <g><rect x="1145" y="320" width="112" height="72" rx="8" fill="#0f172a"/><rect x="1145" y="320" width="112" height="72" rx="8" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1.5"/><text x="1201" y="347" class="name" text-anchor="middle">Knowledge</text><text x="1201" y="366" class="sub" text-anchor="middle">FAQ and notices</text><text x="1201" y="380" class="tiny" text-anchor="middle">files first</text></g>
+  <g><rect x="1273" y="320" width="112" height="72" rx="8" fill="#0f172a"/><rect x="1273" y="320" width="112" height="72" rx="8" fill="rgba(76,29,149,.4)" stroke="#a78bfa" stroke-width="1.5"/><text x="1329" y="347" class="name" text-anchor="middle">Files</text><text x="1329" y="366" class="sub" text-anchor="middle">reports and export</text><text x="1329" y="380" class="tiny" text-anchor="middle">regular backup</text></g>
+  <g><rect x="1145" y="480" width="240" height="72" rx="8" fill="#0f172a"/><rect x="1145" y="480" width="240" height="72" rx="8" fill="rgba(30,41,59,.5)" stroke="#94a3b8" stroke-width="1.5"/><text x="1265" y="507" class="name" text-anchor="middle">LLM API</text><text x="1265" y="526" class="sub" text-anchor="middle">server-side key and provider adapter</text><text x="1265" y="540" class="tiny" text-anchor="middle">only the minimum required context leaves system</text></g>
+
+  <path d="M178 211H251" fill="none" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M178 336H220V381H251" fill="none" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M178 461H220V381H251" fill="none" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow)"/>
+  <path d="M379 211H457" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#cyan)"/>
+  <path d="M379 381H425V212H457" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#cyan)"/>
+  <path d="M379 541H410V212H457" fill="none" stroke="#22d3ee" stroke-width="1.5" marker-end="url(#cyan)"/>
+  <path d="M633 212H714" fill="none" stroke="#34d399" stroke-width="1.5" marker-end="url(#green)"/>
+  <path d="M633 212H680V335H714" fill="none" stroke="#34d399" stroke-width="1.5" marker-end="url(#green)"/>
+  <path d="M633 212H680V506H714" fill="none" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#orange)"/>
+  <path d="M874 190H905" fill="none" stroke="#34d399" stroke-width="1.2" marker-end="url(#green)"/>
+  <path d="M874 335H905" fill="none" stroke="#34d399" stroke-width="1.2" marker-end="url(#green)"/>
+  <path d="M1065 190H1145" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M1065 335H1120V198H1145" fill="none" stroke="#a78bfa" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M1065 506H1100V356H1145" fill="none" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#orange)"/>
+  <path d="M1065 506H1145" fill="none" stroke="#fbbf24" stroke-width="1.5" marker-end="url(#orange)"/>
+  <text x="1082" y="492" class="label">minimal context</text>
+
+  <rect x="42" y="675" width="1343" height="100" rx="10" fill="#0f172a"/><rect x="42" y="675" width="1343" height="100" rx="10" fill="rgba(30,41,59,.5)" stroke="#64748b" stroke-width="1"/>
+  <text x="64" y="702" class="name">Architecture rules</text>
+  <text x="64" y="727" class="sub">Now: one Go process + one SQLite file + backups. Avoid early microservices, queues, cache clusters, and vector databases.</text>
+  <text x="64" y="748" class="sub">Move to MySQL only for frequent concurrent writes, multiple application instances, cloud shared access, or multiple property organizations.</text>
+  <text x="64" y="767" class="sub">The service layer stays stable during migration; replace configuration, migrations, and repository implementation only.</text>
+</svg>
