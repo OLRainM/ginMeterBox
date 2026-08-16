@@ -23,7 +23,7 @@
 
 ```bash
 go mod tidy
-go run main.go
+go run ./cmd/server
 ```
 
 默认启动在 `http://localhost:8080`。
@@ -64,33 +64,30 @@ go run main.go
 
 ## 项目结构
 
-```
+```text
 go-ele/
-├── main.go                    # 入口
-├── config/config.go           # 配置管理
-├── handlers/                  # HTTP 处理器
-│   ├── billing_handler.go     # 账单 CRUD + 自动延续
-│   ├── batch_handler.go       # 批量操作
-│   ├── export_handler.go      # 导入导出
-│   ├── report_handler.go      # 报表图片
-│   ├── match_handler.go       # 智能匹配
-│   └── total_meter_handler.go # 总表管理
-├── services/                  # 业务逻辑
-│   ├── billing_service.go
-│   ├── match_service.go
-│   └── image_generator.go
-├── repository/                # 数据访问（接口 + JSON 实现）
-│   ├── interface.go
-│   ├── billing_json.go
-│   └── total_meter_json.go
-├── models/                    # 数据模型
-├── pkg/
-│   ├── response/              # 统一 JSON 响应
-│   └── errors/                # 业务错误定义
-├── static/                    # 前端页面
-├── data/                      # 数据文件（gitignore）
-├── reports/                   # 生成的报表（gitignore）
-└── exports/                   # 导出文件（gitignore）
+├── cmd/
+│   ├── server/                # HTTP 服务入口、路由与中间件
+│   └── migrate/               # JSON 到 SQLite 的独立迁移工具
+├── internal/
+│   ├── authentication/        # 登录、会话与访问控制
+│   ├── config/                # 配置结构与加载
+│   ├── dto/                   # API 输入结构与校验
+│   ├── handlers/              # HTTP 处理与错误映射
+│   ├── models/                # 领域模型与费用计算
+│   ├── platform/              # 共享错误和统一响应
+│   ├── repository/            # SQLite/JSON 仓储与迁移
+│   └── services/              # 业务编排、报表与文件管理
+├── web/
+│   ├── pages/                 # HTML 页面
+│   └── assets/                # CSS 与浏览器 JavaScript
+├── docs/project/              # 当前系统维护文档
+├── tests/                     # PowerShell 接口与安全测试脚本
+├── diagram/                   # 架构图资源
+├── memory/                    # 设计决策和未来规划
+├── data/                      # 本地数据库与历史数据（不提交）
+├── reports/                   # 生成的报表（不提交）
+└── exports/                   # 导出文件（不提交）
 ```
 
 ## API
